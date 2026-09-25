@@ -52,6 +52,8 @@ function SupabaseLoginPage() {
       const loginPayload = (await loginResponse.json()) as {
         access_token?: string;
         refresh_token?: string;
+        expires_at?: number;
+        user?: unknown;
       };
 
       if (!loginResponse.ok || !loginPayload.access_token || !loginPayload.refresh_token) {
@@ -59,14 +61,14 @@ function SupabaseLoginPage() {
         return;
       }
 
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: loginPayload.access_token,
-        refresh_token: loginPayload.refresh_token,
-      });
-      if (sessionError) {
-        setError("Не удалось сохранить сессию. Попробуйте ещё раз.");
-        return;
-      }
+      // The Vercel endpoint already returned the canonical Supabase session.
+      // Persist it in the key Auth.js uses before the next page loads. This
+      // avoids a browser-specific hang inside setSession() in embedded views.
+      const projectRef = new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split(".")[0];
+      localStorage.setItem(
+        `sb-${projectRef}-auth-token`,
+        JSON.stringify(loginPayload)
+      );
 
       // Do not wait for the auth-state subscription here. A full navigation
       // reads the persisted Supabase session on /app and avoids a race between

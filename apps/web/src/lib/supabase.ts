@@ -14,11 +14,6 @@ export const supabase =
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          // The planner is single-user. In some embedded Chromium contexts
-          // navigator.locks can leave Auth.js waiting forever during a
-          // concurrent initial getSession() and sign-in. A local client lock
-          // is enough here and keeps the password form responsive.
-          lock: async (_name, _acquireTimeout, fn) => fn(),
         },
       })
     : null;

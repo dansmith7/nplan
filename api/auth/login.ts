@@ -68,11 +68,7 @@ export default async function handler(
       return response.status(401).json({ message: "Invalid login credentials" });
     }
 
-    const payload = await upstream.json();
-    return response.status(200).json({
-      access_token: payload.access_token,
-      refresh_token: payload.refresh_token,
-    });
+    return response.status(200).json(await upstream.json());
   } catch {
     return response.status(503).json({ message: "Authentication service unavailable" });
   }

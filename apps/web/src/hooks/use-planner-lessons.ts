@@ -23,6 +23,8 @@ export type PlannerLessonRow = {
 type LessonRange = { from: string; to: string };
 const lessonKey = (userId?: string, range?: LessonRange) =>
   ["planner", "lessons", userId, range?.from, range?.to] as const;
+const pendingLessonsKey = (userId?: string) =>
+  ["planner", "pending-lessons", userId] as const;
 
 async function getLessons(range: LessonRange): Promise<PlannerLessonRow[]> {
   const { data, error } = await requireSupabase()
@@ -37,6 +39,76 @@ async function getLessons(range: LessonRange): Promise<PlannerLessonRow[]> {
     .returns<PlannerLessonRow[]>();
   if (error) throw error;
   return data;
+}
+
+async function getPendingLessonConfirmations(): Promise<PlannerLessonRow[]> {
+  const { data, error } = await requireSupabase()
+    .from("calendar_events")
+    .select(
+      "id, title, starts_at, ends_at, recurrence, student:students!inner(id, name), notes:lesson_notes!inner(topic, homework, status, completed_at, cancelled_at)"
+    )
+    .eq("kind", "lesson")
+    .eq("lesson_notes.status", "scheduled")
+    .lt("ends_at", new Date().toISOString())
+    .order("starts_at", { ascending: false })
+    .limit(10)
+    .returns<PlannerLessonRow[]>();
+  if (error) throw error;
+  return data;
+}
+
+export function usePendingLessonConfirmations() {
+  const { isConfigured, session } = useSupabaseSession();
+  return useQuery({
+    queryKey: pendingLessonsKey(session?.user.id),
+    queryFn: getPendingLessonConfirmations,
+    enabled: isConfigured && Boolean(session?.user.id),
+    staleTime: 30_000,
+  });
+}
+
+export function useLessonConfirmationActions() {
+  const queryClient = useQueryClient();
+  const { session } = useSupabaseSession();
+  const invalidate = React.useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "lessons", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "pending-lessons", session?.user.id],
+        }),
+      ]),
+    [queryClient, session?.user.id]
+  );
+
+  const setStatus = useMutation({
+    mutationFn: async ({
+      eventId,
+      status,
+    }: {
+      eventId: string;
+      status: "held" | "cancelled";
+    }) => {
+      const now = new Date().toISOString();
+      const { error } = await requireSupabase()
+        .from("lesson_notes")
+        .update({
+          status,
+          completed_at: status === "held" ? now : null,
+          cancelled_at: status === "cancelled" ? now : null,
+        })
+        .eq("event_id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  return { setStatus };
 }
 
 export function usePlannerLessons(range: LessonRange) {
@@ -57,6 +129,9 @@ export function usePlannerLessons(range: LessonRange) {
         }),
         queryClient.invalidateQueries({
           queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "pending-lessons", session?.user.id],
         }),
       ]),
     [queryClient, session?.user.id]

@@ -21,7 +21,16 @@ export type PlannerStudentRow = {
   schedules: StudentScheduleRow[];
 };
 
-const studentsKey = (userId?: string) => ["planner", "students", userId] as const;
+type StudentScheduleInput = {
+  studentId: string;
+  weekday: number;
+  startsAt: string;
+  durationMinutes: number;
+  timezone: string;
+};
+
+const studentsKey = (userId?: string) =>
+  ["planner", "students", userId] as const;
 
 async function getStudents(): Promise<PlannerStudentRow[]> {
   const { data, error } = await requireSupabase()
@@ -46,13 +55,24 @@ export function usePlannerStudents() {
     staleTime: 30_000,
   });
   const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: key }),
-    [key, queryClient]
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "lessons", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+      ]),
+    [key, queryClient, session?.user.id]
   );
 
   const create = useMutation({
     mutationFn: async (name: string) => {
-      const { error } = await requireSupabase().from("students").insert({ name: name.trim() });
+      const { error } = await requireSupabase()
+        .from("students")
+        .insert({ name: name.trim() });
       if (error) throw error;
     },
     onSuccess: invalidate,
@@ -69,12 +89,50 @@ export function usePlannerStudents() {
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await requireSupabase().from("students").delete().eq("id", id);
+      const { error } = await requireSupabase()
+        .from("students")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: invalidate,
   });
 
-  return { ...query, create, rename, remove };
-}
+  const createSchedule = useMutation({
+    mutationFn: async (input: StudentScheduleInput) => {
+      const { data, error } = await requireSupabase().rpc(
+        "create_student_schedule",
+        {
+          p_student_id: input.studentId,
+          p_weekday: input.weekday,
+          p_starts_at: input.startsAt,
+          p_duration_minutes: input.durationMinutes,
+          p_timezone: input.timezone,
+          p_weeks: 12,
+        }
+      );
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: invalidate,
+  });
 
+  const removeSchedule = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await requireSupabase().rpc("remove_student_schedule", {
+        p_schedule_id: id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  return {
+    ...query,
+    create,
+    rename,
+    remove,
+    createSchedule,
+    removeSchedule,
+  };
+}

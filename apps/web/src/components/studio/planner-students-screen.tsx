@@ -1,5 +1,14 @@
 import * as React from "react";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   type PlannerStudentRow,
   usePlannerStudents,
@@ -31,20 +40,30 @@ export function PlannerStudentsScreen() {
   const range = React.useMemo(getLessonRange, []);
   const lessons = usePlannerLessons(range);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [editingStudent, setEditingStudent] = React.useState<PlannerStudentRow | "new" | null>(null);
-  const [editingLesson, setEditingLesson] = React.useState<PlannerLessonRow | null>(null);
+  const [editingStudent, setEditingStudent] = React.useState<
+    PlannerStudentRow | "new" | null
+  >(null);
+  const [editingLesson, setEditingLesson] =
+    React.useState<PlannerLessonRow | null>(null);
+  const [addingSchedule, setAddingSchedule] = React.useState(false);
 
-  const selected = students.data?.find((student) => student.id === selectedId) ?? null;
+  const selected =
+    students.data?.find((student) => student.id === selectedId) ?? null;
   const allLessons = lessons.data ?? [];
 
   if (selected) {
     return (
       <StudentProfile
         student={selected}
-        lessons={allLessons.filter((lesson) => lesson.student.id === selected.id)}
+        lessons={allLessons.filter(
+          (lesson) => lesson.student.id === selected.id
+        )}
         onBack={() => setSelectedId(null)}
         onEdit={() => setEditingStudent(selected)}
         onLesson={setEditingLesson}
+        onAddSchedule={() => setAddingSchedule(true)}
+        onRemoveSchedule={(id) => students.removeSchedule.mutateAsync(id)}
+        scheduleBusy={students.removeSchedule.isPending}
       >
         {editingStudent ? (
           <StudentEditor
@@ -52,15 +71,24 @@ export function PlannerStudentsScreen() {
             busy={students.rename.isPending || students.remove.isPending}
             onClose={() => setEditingStudent(null)}
             onSave={async (name) => {
-              if (editingStudent === "new") await students.create.mutateAsync(name);
-              else await students.rename.mutateAsync({ id: editingStudent.id, name });
+              if (editingStudent === "new")
+                await students.create.mutateAsync(name);
+              else
+                await students.rename.mutateAsync({
+                  id: editingStudent.id,
+                  name,
+                });
               setEditingStudent(null);
             }}
-            onDelete={editingStudent === "new" ? undefined : async () => {
-              await students.remove.mutateAsync(editingStudent.id);
-              setEditingStudent(null);
-              setSelectedId(null);
-            }}
+            onDelete={
+              editingStudent === "new"
+                ? undefined
+                : async () => {
+                    await students.remove.mutateAsync(editingStudent.id);
+                    setEditingStudent(null);
+                    setSelectedId(null);
+                  }
+            }
           />
         ) : null}
         {editingLesson ? (
@@ -69,8 +97,30 @@ export function PlannerStudentsScreen() {
             busy={lessons.saveNotes.isPending}
             onClose={() => setEditingLesson(null)}
             onSave={async (topic, homework) => {
-              await lessons.saveNotes.mutateAsync({ eventId: editingLesson.id, topic, homework });
+              await lessons.saveNotes.mutateAsync({
+                eventId: editingLesson.id,
+                topic,
+                homework,
+              });
               setEditingLesson(null);
+            }}
+          />
+        ) : null}
+        {addingSchedule ? (
+          <ScheduleEditor
+            busy={students.createSchedule.isPending}
+            onClose={() => setAddingSchedule(false)}
+            onSave={async (weekday, startsAt, durationMinutes) => {
+              await students.createSchedule.mutateAsync({
+                studentId: selected.id,
+                weekday,
+                startsAt,
+                durationMinutes,
+                timezone:
+                  Intl.DateTimeFormat().resolvedOptions().timeZone ||
+                  "Europe/Istanbul",
+              });
+              setAddingSchedule(false);
             }}
           />
         ) : null}
@@ -85,26 +135,41 @@ export function PlannerStudentsScreen() {
           <span>РАБОТА С УЧЕНИКАМИ</span>
           <h1>Ученики</h1>
         </div>
-        <button className="new-task-button" onClick={() => setEditingStudent("new")}>
+        <button
+          className="new-task-button"
+          onClick={() => setEditingStudent("new")}
+        >
           <Plus size={16} /> Добавить ученика
         </button>
       </div>
 
-      {students.isLoading ? <div className="students-loading">Загружаю учеников…</div> : null}
+      {students.isLoading ? (
+        <div className="students-loading">Загружаю учеников…</div>
+      ) : null}
       {!students.isLoading && students.data?.length ? (
         <div className="students-grid">
           {students.data.map((student) => {
-            const studentLessons = allLessons.filter((lesson) => lesson.student.id === student.id);
-            const next = studentLessons.find(
-              (lesson) => lesson.notes?.status === "scheduled" && new Date(lesson.starts_at) > new Date()
+            const studentLessons = allLessons.filter(
+              (lesson) => lesson.student.id === student.id
             );
-            const heldCount = studentLessons.filter((lesson) => lesson.notes?.status === "held").length;
+            const next = studentLessons.find(
+              (lesson) =>
+                lesson.notes?.status === "scheduled" &&
+                new Date(lesson.starts_at) > new Date()
+            );
+            const heldCount = studentLessons.filter(
+              (lesson) => lesson.notes?.status === "held"
+            ).length;
             return (
               <article className="student-card" key={student.id}>
                 <div className="student-initial">{student.name[0]}</div>
                 <span>БЛИЖАЙШЕЕ ЗАНЯТИЕ</span>
                 <h2>{student.name}</h2>
-                <p>{next ? dateFormatter.format(new Date(next.starts_at)) : "Пока не назначено"}</p>
+                <p>
+                  {next
+                    ? dateFormatter.format(new Date(next.starts_at))
+                    : "Пока не назначено"}
+                </p>
                 <div>
                   <small>{heldCount} занятий</small>
                   <button onClick={() => setSelectedId(student.id)}>
@@ -122,7 +187,9 @@ export function PlannerStudentsScreen() {
           <CircleCheck size={22} />
           <div>
             <h3>Учеников пока нет.</h3>
-            <p>Добавьте ученика, затем задайте расписание и создайте первый урок.</p>
+            <p>
+              Добавьте ученика, затем задайте расписание и создайте первый урок.
+            </p>
           </div>
           <button onClick={() => setEditingStudent("new")}>
             <Plus size={15} /> Добавить ученика
@@ -151,6 +218,9 @@ function StudentProfile({
   onBack,
   onEdit,
   onLesson,
+  onAddSchedule,
+  onRemoveSchedule,
+  scheduleBusy,
   children,
 }: {
   student: PlannerStudentRow;
@@ -158,11 +228,18 @@ function StudentProfile({
   onBack: () => void;
   onEdit: () => void;
   onLesson: (lesson: PlannerLessonRow) => void;
+  onAddSchedule: () => void;
+  onRemoveSchedule: (id: string) => Promise<unknown>;
+  scheduleBusy: boolean;
   children: React.ReactNode;
 }) {
-  const held = lessons.filter((lesson) => lesson.notes?.status === "held").reverse();
+  const held = lessons
+    .filter((lesson) => lesson.notes?.status === "held")
+    .reverse();
   const next = lessons.find(
-    (lesson) => lesson.notes?.status === "scheduled" && new Date(lesson.starts_at) > new Date()
+    (lesson) =>
+      lesson.notes?.status === "scheduled" &&
+      new Date(lesson.starts_at) > new Date()
   );
   const schedule = student.schedules.filter((item) => item.active);
   return (
@@ -175,7 +252,11 @@ function StudentProfile({
         <div>
           <span>КАРТОЧКА УЧЕНИКА</span>
           <h1>{student.name}</h1>
-          <p>{schedule.length ? schedule.map(formatSchedule).join(" · ") : "Расписание не задано"}</p>
+          <p>
+            {schedule.length
+              ? schedule.map(formatSchedule).join(" · ")
+              : "Расписание не задано"}
+          </p>
         </div>
         <button className="new-task-button" onClick={onEdit}>
           <Pencil size={15} /> Редактировать
@@ -184,7 +265,11 @@ function StudentProfile({
       <div className="profile-grid">
         <section>
           <span>БЛИЖАЙШИЙ УРОК</span>
-          <h2>{next ? dateFormatter.format(new Date(next.starts_at)) : "Не назначен"}</h2>
+          <h2>
+            {next
+              ? dateFormatter.format(new Date(next.starts_at))
+              : "Не назначен"}
+          </h2>
           <p>Напоминание за час до занятия</p>
         </section>
         <section>
@@ -193,18 +278,135 @@ function StudentProfile({
           <p>Хранится у конкретного урока</p>
         </section>
       </div>
-      <section className="profile-history">
-        <header><span>ИСТОРИЯ</span><h2>Занятия</h2></header>
-        {held.length ? held.map((lesson) => (
-          <button key={lesson.id} onClick={() => onLesson(lesson)}>
-            <CircleCheck size={16} />
-            <span>{dateFormatter.format(new Date(lesson.starts_at))} · {lesson.notes?.topic || "Тема не заполнена"}</span>
-            <ChevronRight size={15} />
+      <section className="student-schedule">
+        <header>
+          <div>
+            <span>РАСПИСАНИЕ</span>
+            <h2>Регулярные уроки</h2>
+          </div>
+          <button onClick={onAddSchedule}>
+            <Plus size={14} /> Добавить время
           </button>
-        )) : <p className="student-history-empty">Проведённые уроки появятся здесь.</p>}
+        </header>
+        {schedule.length ? (
+          <div className="student-schedule-list">
+            {schedule.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <b>{formatSchedule(item)}</b>
+                  <span>{item.duration_minutes} минут</span>
+                </div>
+                <button
+                  aria-label="Удалить время из расписания"
+                  disabled={scheduleBusy}
+                  onClick={() => void onRemoveSchedule(item.id)}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="student-history-empty">
+            Добавьте день и время — уроки появятся в календаре.
+          </p>
+        )}
+      </section>
+      <section className="profile-history">
+        <header>
+          <span>ИСТОРИЯ</span>
+          <h2>Занятия</h2>
+        </header>
+        {held.length ? (
+          held.map((lesson) => (
+            <button key={lesson.id} onClick={() => onLesson(lesson)}>
+              <CircleCheck size={16} />
+              <span>
+                {dateFormatter.format(new Date(lesson.starts_at))} ·{" "}
+                {lesson.notes?.topic || "Тема не заполнена"}
+              </span>
+              <ChevronRight size={15} />
+            </button>
+          ))
+        ) : (
+          <p className="student-history-empty">
+            Проведённые уроки появятся здесь.
+          </p>
+        )}
       </section>
       {children}
     </section>
+  );
+}
+
+function ScheduleEditor({
+  busy,
+  onClose,
+  onSave,
+}: {
+  busy: boolean;
+  onClose: () => void;
+  onSave: (
+    weekday: number,
+    startsAt: string,
+    durationMinutes: number
+  ) => Promise<void>;
+}) {
+  const [weekday, setWeekday] = React.useState(1);
+  const [startsAt, setStartsAt] = React.useState("18:00");
+  const [durationMinutes, setDurationMinutes] = React.useState(60);
+  return (
+    <Dialog onClose={onClose}>
+      <div className="modal-top">
+        <span>РАСПИСАНИЕ УЧЕНИКА</span>
+        <button onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <h2>Регулярный урок</h2>
+      <div className="modal-two-columns">
+        <label>
+          День недели
+          <select
+            value={weekday}
+            onChange={(event) => setWeekday(Number(event.target.value))}
+          >
+            {weekdayNames.map((day, index) => (
+              <option key={day} value={index}>
+                {day}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Время
+          <input
+            type="time"
+            value={startsAt}
+            onChange={(event) => setStartsAt(event.target.value)}
+          />
+        </label>
+      </div>
+      <label>
+        Продолжительность
+        <select
+          value={durationMinutes}
+          onChange={(event) => setDurationMinutes(Number(event.target.value))}
+        >
+          <option value={45}>45 минут</option>
+          <option value={60}>60 минут</option>
+          <option value={90}>90 минут</option>
+          <option value={120}>120 минут</option>
+        </select>
+      </label>
+      <button
+        className="complete-modal"
+        disabled={busy || !startsAt}
+        onClick={() => void onSave(weekday, startsAt, durationMinutes)}
+      >
+        <Plus size={16} /> {busy ? "Создаю…" : "Добавить в расписание"}
+      </button>
+    </Dialog>
   );
 }
 
@@ -212,7 +414,13 @@ function formatSchedule(schedule: PlannerStudentRow["schedules"][number]) {
   return `${weekdayNames[schedule.weekday]} · ${schedule.starts_at.slice(0, 5)}`;
 }
 
-function StudentEditor({ student, busy, onClose, onSave, onDelete }: {
+function StudentEditor({
+  student,
+  busy,
+  onClose,
+  onSave,
+  onDelete,
+}: {
   student: PlannerStudentRow | "new";
   busy: boolean;
   onClose: () => void;
@@ -220,18 +428,51 @@ function StudentEditor({ student, busy, onClose, onSave, onDelete }: {
   onDelete?: () => Promise<void>;
 }) {
   const [name, setName] = React.useState(student === "new" ? "" : student.name);
-  return <Dialog onClose={onClose}>
-    <div className="modal-top"><span>{student === "new" ? "НОВЫЙ УЧЕНИК" : "КАРТОЧКА УЧЕНИКА"}</span><button onClick={onClose}><X size={18} /></button></div>
-    <h2>{student === "new" ? "Добавить ученика" : "Изменить имя"}</h2>
-    <label>Имя<input autoFocus value={name} onChange={(event) => setName(event.target.value)} /></label>
-    <div className="modal-footer">
-      {onDelete ? <button className="delete-button" disabled={busy} onClick={() => void onDelete()}><Trash2 size={15} /> Удалить</button> : null}
-      <button className="complete-modal" disabled={busy || !name.trim()} onClick={() => void onSave(name.trim())}><Check size={16} /> Сохранить</button>
-    </div>
-  </Dialog>;
+  return (
+    <Dialog onClose={onClose}>
+      <div className="modal-top">
+        <span>{student === "new" ? "НОВЫЙ УЧЕНИК" : "КАРТОЧКА УЧЕНИКА"}</span>
+        <button onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <h2>{student === "new" ? "Добавить ученика" : "Изменить имя"}</h2>
+      <label>
+        Имя
+        <input
+          autoFocus
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+      <div className="modal-footer">
+        {onDelete ? (
+          <button
+            className="delete-button"
+            disabled={busy}
+            onClick={() => void onDelete()}
+          >
+            <Trash2 size={15} /> Удалить
+          </button>
+        ) : null}
+        <button
+          className="complete-modal"
+          disabled={busy || !name.trim()}
+          onClick={() => void onSave(name.trim())}
+        >
+          <Check size={16} /> Сохранить
+        </button>
+      </div>
+    </Dialog>
+  );
 }
 
-function LessonNotesEditor({ lesson, busy, onClose, onSave }: {
+function LessonNotesEditor({
+  lesson,
+  busy,
+  onClose,
+  onSave,
+}: {
   lesson: PlannerLessonRow;
   busy: boolean;
   onClose: () => void;
@@ -239,16 +480,61 @@ function LessonNotesEditor({ lesson, busy, onClose, onSave }: {
 }) {
   const [topic, setTopic] = React.useState(lesson.notes?.topic ?? "");
   const [homework, setHomework] = React.useState(lesson.notes?.homework ?? "");
-  return <Dialog onClose={onClose}>
-    <div className="modal-top"><span>УРОК · {dateFormatter.format(new Date(lesson.starts_at))}</span><button onClick={onClose}><X size={18} /></button></div>
-    <h2>{lesson.student.name}</h2>
-    <label>Тема урока<input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Что проходили?" /></label>
-    <label>Домашнее задание<textarea value={homework} onChange={(event) => setHomework(event.target.value)} placeholder="Свободный текст" /></label>
-    <div className="modal-footer"><button className="complete-modal" disabled={busy} onClick={() => void onSave(topic, homework)}><Check size={16} /> Сохранить</button></div>
-  </Dialog>;
+  return (
+    <Dialog onClose={onClose}>
+      <div className="modal-top">
+        <span>УРОК · {dateFormatter.format(new Date(lesson.starts_at))}</span>
+        <button onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <h2>{lesson.student.name}</h2>
+      <label>
+        Тема урока
+        <input
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+          placeholder="Что проходили?"
+        />
+      </label>
+      <label>
+        Домашнее задание
+        <textarea
+          value={homework}
+          onChange={(event) => setHomework(event.target.value)}
+          placeholder="Свободный текст"
+        />
+      </label>
+      <div className="modal-footer">
+        <button
+          className="complete-modal"
+          disabled={busy}
+          onClick={() => void onSave(topic, homework)}
+        >
+          <Check size={16} /> Сохранить
+        </button>
+      </div>
+    </Dialog>
+  );
 }
 
-function Dialog({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  return <div className="modal-backdrop" onMouseDown={onClose}><section className="planner-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>{children}</section></div>;
+function Dialog({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <section
+        className="planner-modal"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        {children}
+      </section>
+    </div>
+  );
 }
-

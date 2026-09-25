@@ -10,7 +10,7 @@
 | Students               | Supabase CRUD and lesson history          | `students`, `student_schedules`             |
 | Calendar               | Supabase-backed shared home/full calendar | `calendar_events`                           |
 | Lesson topic/homework  | Saved from the student profile            | `lesson_notes`                              |
-| Lesson attendance      | Not implemented                           | `lesson_notes.status`                       |
+| Lesson attendance      | Confirmed in the morning review           | `lesson_notes.status`                       |
 | Telegram/mail inbox    | Supabase CRUD and atomic task promotion   | `inbox_items`                               |
 | Morning/evening review | Real clock, live task and inbox queries   | Database queries using profile timezone     |
 | Notifications          | Not connected                             | `notification_log` + server/desktop workers |
@@ -39,7 +39,7 @@ This separation is intentional:
 
 ## Remaining hardcoded UI to remove
 
-- student schedule editing and recurrence expansion UI;
+- rolling recurrence expansion beyond the initial 12-week lesson horizon;
 - task attachment controls that are still presentation-only;
 
 ## Server boundaries

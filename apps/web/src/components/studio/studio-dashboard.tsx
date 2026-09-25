@@ -39,6 +39,11 @@ import {
   type PlannerInboxRow,
   usePlannerInbox,
 } from "@/hooks/use-planner-inbox";
+import {
+  type PlannerLessonRow,
+  useLessonConfirmationActions,
+  usePendingLessonConfirmations,
+} from "@/hooks/use-planner-lessons";
 
 type Screen = "planner" | "calendar" | "inbox" | "students";
 type Category =
@@ -105,6 +110,12 @@ type PlannerEvent = {
 };
 
 const calendarDays = 7;
+const lessonDateFormatter = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 function startOfPlannerWeek(value: Date) {
   const result = new Date(value);
@@ -195,6 +206,8 @@ export function StudioDashboard() {
   const plannerBootstrap = usePlannerBootstrap();
   const plannerTasks = usePlannerTasks();
   const plannerInbox = usePlannerInbox();
+  const pendingLessons = usePendingLessonConfirmations();
+  const lessonConfirmation = useLessonConfirmationActions();
   const [calendarWeekStart, setCalendarWeekStart] = React.useState(() =>
     startOfPlannerWeek(new Date())
   );
@@ -368,6 +381,10 @@ export function StudioDashboard() {
               calendarEvents={calendarEvents}
               calendarWeekStart={calendarWeekStart}
               inboxItems={plannerInbox.data ?? []}
+              pendingLessons={pendingLessons.data ?? []}
+              onConfirmLesson={(eventId, status) =>
+                lessonConfirmation.setStatus.mutateAsync({ eventId, status })
+              }
               onComplete={completeTask}
               onOpen={setSelectedTask}
               onAdd={(category) => {
@@ -452,6 +469,8 @@ function PlannerScreen({
   calendarEvents,
   calendarWeekStart,
   inboxItems,
+  pendingLessons,
+  onConfirmLesson,
   onComplete,
   onOpen,
   onAdd,
@@ -461,6 +480,11 @@ function PlannerScreen({
   calendarEvents: PlannerEvent[];
   calendarWeekStart: Date;
   inboxItems: PlannerInboxRow[];
+  pendingLessons: PlannerLessonRow[];
+  onConfirmLesson: (
+    eventId: string,
+    status: "held" | "cancelled"
+  ) => Promise<unknown>;
   onComplete: (id: string) => void;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
@@ -503,6 +527,8 @@ function PlannerScreen({
           <MorningReviewScreen
             tasks={tasks}
             inboxItems={inboxItems}
+            pendingLessons={pendingLessons}
+            onConfirmLesson={onConfirmLesson}
             onOpen={onOpen}
             onNavigate={onNavigate}
           />
@@ -1059,11 +1085,18 @@ function InboxScreen({
 function MorningReviewScreen({
   tasks,
   inboxItems,
+  pendingLessons,
+  onConfirmLesson,
   onOpen,
   onNavigate,
 }: {
   tasks: Task[];
   inboxItems: PlannerInboxRow[];
+  pendingLessons: PlannerLessonRow[];
+  onConfirmLesson: (
+    eventId: string,
+    status: "held" | "cancelled"
+  ) => Promise<unknown>;
   onOpen: (task: Task) => void;
   onNavigate: (screen: Screen) => void;
 }) {
@@ -1115,6 +1148,42 @@ function MorningReviewScreen({
           </button>
         </section>
       </div>
+      {pendingLessons.length ? (
+        <section className="lesson-confirmations">
+          <header>
+            <div>
+              <span>ПРОШЕДШИЕ УРОКИ · {pendingLessons.length}</span>
+              <h2>Урок состоялся?</h2>
+            </div>
+            <p>Ответ обновит историю ученика и календарь.</p>
+          </header>
+          <div>
+            {pendingLessons.map((lesson) => (
+              <article key={lesson.id}>
+                <div>
+                  <b>{lesson.student.name}</b>
+                  <span>
+                    {lessonDateFormatter.format(new Date(lesson.starts_at))}
+                  </span>
+                </div>
+                <div>
+                  <button
+                    onClick={() => void onConfirmLesson(lesson.id, "held")}
+                  >
+                    <Check size={15} /> Был
+                  </button>
+                  <button
+                    className="lesson-cancelled"
+                    onClick={() => void onConfirmLesson(lesson.id, "cancelled")}
+                  >
+                    Не был
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }

@@ -76,6 +76,80 @@
   font: 400 25px/1 Georgia;
   margin: 15px 0 8px;
 }
+.student-schedule {
+  max-width: 870px;
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.student-schedule > header,
+.student-schedule article,
+.student-schedule > header button {
+  display: flex;
+  align-items: center;
+}
+.student-schedule > header {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.student-schedule > header span {
+  color: #969289;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+.student-schedule h2 {
+  margin: 7px 0 0;
+  font: 400 27px/1 Georgia;
+}
+.student-schedule > header button {
+  min-height: 40px;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper);
+  font: 600 12px TTCommons;
+  cursor: pointer;
+}
+.student-schedule-list {
+  margin-top: var(--space-3);
+}
+.student-schedule article {
+  min-height: 58px;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+}
+.student-schedule article > div {
+  display: grid;
+  gap: 3px;
+}
+.student-schedule article b {
+  font-size: 14px;
+}
+.student-schedule article span {
+  color: #969289;
+  font-size: 11px;
+}
+.student-schedule article button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8f8a82;
+  cursor: pointer;
+}
+.student-schedule article button:hover {
+  background: #ffffff0b;
+  color: var(--overdue);
+}
 .profile-history {
   max-width: 870px;
   margin-top: var(--space-4);
@@ -988,6 +1062,73 @@
   grid-template-columns: 1fr 1fr 1.1fr;
   gap: var(--space-2);
   margin-top: var(--space-4);
+}
+.lesson-confirmations {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.lesson-confirmations > header,
+.lesson-confirmations article,
+.lesson-confirmations article > div:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lesson-confirmations > header > div > span {
+  color: #969289;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+.lesson-confirmations h2 {
+  margin: 7px 0 0;
+  font: 400 27px/1 Georgia;
+}
+.lesson-confirmations header p {
+  margin: 0;
+  color: #8f8b83;
+  font-size: 12px;
+}
+.lesson-confirmations article {
+  min-height: 64px;
+  border-top: 1px solid var(--line);
+}
+.lesson-confirmations article:first-child {
+  margin-top: var(--space-3);
+}
+.lesson-confirmations article > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+.lesson-confirmations article b {
+  font-size: 14px;
+}
+.lesson-confirmations article span {
+  color: #969289;
+  font-size: 11px;
+}
+.lesson-confirmations article button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 600 12px TTCommons;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.lesson-confirmations article .lesson-cancelled {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: #aaa59c;
 }
 .review-panel {
   min-height: 286px;

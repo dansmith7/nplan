@@ -28,6 +28,13 @@ import {
   type PlannerTaskRow,
   usePlannerTasks,
 } from "@/hooks/use-planner-tasks";
+import {
+  type CalendarEventInput,
+  type CalendarEventKind,
+  type PlannerCalendarEventRow,
+  usePlannerCalendarEvents,
+} from "@/hooks/use-planner-calendar-events";
+import { usePlannerStudents } from "@/hooks/use-planner-students";
 
 type Screen = "planner" | "calendar" | "inbox" | "students";
 type Category =
@@ -84,42 +91,102 @@ type PlannerEvent = {
   top: number;
   title: string;
   time: string;
-  kind: "lesson" | "task" | "event";
+  kind: CalendarEventKind;
+  durationMinutes: number;
+  studentId: string | null;
+  taskId: string | null;
+  description: string | null;
+  recurrence: "none" | "weekly" | "monthly";
+  isNew?: boolean;
 };
-const events: PlannerEvent[] = [
-  {
-    id: "e1",
-    day: 1,
-    top: 17,
-    title: "Занятие · Маша",
-    time: "11:00",
-    kind: "lesson",
-  },
-  {
-    id: "e2",
-    day: 2,
-    top: 42,
-    title: "Подготовить заявление",
-    time: "14:30",
-    kind: "task",
-  },
-  {
-    id: "e3",
-    day: 3,
-    top: 24,
-    title: "Созвон с поставщиком",
-    time: "12:00",
-    kind: "event",
-  },
-  {
-    id: "e4",
-    day: 4,
-    top: 57,
-    title: "Занятие · Лиза",
-    time: "16:00",
-    kind: "lesson",
-  },
-];
+
+const calendarDays = 7;
+
+function startOfPlannerWeek(value: Date) {
+  const result = new Date(value);
+  result.setHours(0, 0, 0, 0);
+  result.setDate(result.getDate() - ((result.getDay() + 6) % 7));
+  return result;
+}
+
+function addCalendarDays(value: Date, amount: number) {
+  const result = new Date(value);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+function localDateKey(value: Date) {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function weekDayDates(weekStart: Date) {
+  return Array.from({ length: calendarDays }, (_, index) =>
+    addCalendarDays(weekStart, index)
+  );
+}
+
+function eventTop(time: string) {
+  const [hours = 9, minutes = 0] = time.split(":").map(Number);
+  const minuteOfDay = hours * 60 + minutes;
+  const clamped = Math.min(18 * 60, Math.max(9 * 60, minuteOfDay));
+  return 10 + ((clamped - 9 * 60) / (9 * 60)) * 79;
+}
+
+function toPlannerEvent(
+  event: PlannerCalendarEventRow,
+  weekStart: Date
+): PlannerEvent | null {
+  const startsAt = new Date(event.starts_at);
+  const day = weekDayDates(weekStart).findIndex(
+    (date) => localDateKey(date) === localDateKey(startsAt)
+  );
+  if (day < 0) return null;
+  const time = `${String(startsAt.getHours()).padStart(2, "0")}:${String(
+    startsAt.getMinutes()
+  ).padStart(2, "0")}`;
+  return {
+    id: event.id,
+    day,
+    top: eventTop(time),
+    title: event.title,
+    time,
+    kind: event.kind,
+    durationMinutes: Math.max(
+      30,
+      Math.round(
+        (new Date(event.ends_at).getTime() - startsAt.getTime()) / 60_000
+      )
+    ),
+    studentId: event.student_id,
+    taskId: event.task_id,
+    description: event.description,
+    recurrence: event.recurrence,
+  };
+}
+
+function toCalendarEventInput(
+  event: PlannerEvent,
+  weekStart: Date
+): CalendarEventInput {
+  const date = addCalendarDays(weekStart, event.day);
+  const [hours = 9, minutes = 0] = event.time.split(":").map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  const endsAt = new Date(date.getTime() + event.durationMinutes * 60_000);
+  return {
+    kind: event.kind,
+    title: event.title,
+    startsAt: date.toISOString(),
+    endsAt: endsAt.toISOString(),
+    studentId: event.kind === "lesson" ? event.studentId : null,
+    taskId: event.kind === "task" ? event.taskId : null,
+    description: event.description,
+    recurrence: event.recurrence,
+  };
+}
 const inboxItems = [
   {
     source: "Telegram",
@@ -144,44 +211,68 @@ const inboxItems = [
 export function StudioDashboard() {
   const plannerBootstrap = usePlannerBootstrap();
   const plannerTasks = usePlannerTasks();
+  const [calendarWeekStart, setCalendarWeekStart] = React.useState(() =>
+    startOfPlannerWeek(new Date())
+  );
+  const calendarRange = React.useMemo(
+    () => ({
+      from: calendarWeekStart.toISOString(),
+      to: addCalendarDays(calendarWeekStart, calendarDays).toISOString(),
+    }),
+    [calendarWeekStart]
+  );
+  const plannerCalendar = usePlannerCalendarEvents(calendarRange);
+  const calendarEvents = React.useMemo(
+    () =>
+      (plannerCalendar.data ?? []).flatMap((event) => {
+        const mapped = toPlannerEvent(event, calendarWeekStart);
+        return mapped ? [mapped] : [];
+      }),
+    [calendarWeekStart, plannerCalendar.data]
+  );
   const currentDate = formatCurrentDate(
     new Date(),
     plannerBootstrap.data?.profile.timezone
   );
   const displayName = plannerBootstrap.data?.profile.display_name;
-  const headerName = displayName && !displayName.includes("@")
-    ? displayName.split(" ")[0]
-    : "Собранно.";
+  const headerName =
+    displayName && !displayName.includes("@")
+      ? displayName.split(" ")[0]
+      : "Собранно.";
   const [screen, setScreen] = React.useState<Screen>("planner");
   const tasks = React.useMemo<Task[]>(() => {
     if (!plannerTasks.data) return [];
     return plannerTasks.data.flatMap((task) => {
       const category = task.category?.name as Category | undefined;
       if (!category || !categories.includes(category)) return [];
-      return [{
-        id: task.id,
-        title: task.title,
-        category,
-        due: getDueTone(task.due_date),
-        date: formatDueDate(task.due_date),
-        time: task.due_time ?? undefined,
-        repeat: recurrenceToLabel(task.recurrence),
-        done: task.status === "completed",
-        note: task.description ?? undefined,
-      }];
+      return [
+        {
+          id: task.id,
+          title: task.title,
+          category,
+          due: getDueTone(task.due_date),
+          date: formatDueDate(task.due_date),
+          time: task.due_time ?? undefined,
+          repeat: recurrenceToLabel(task.recurrence),
+          done: task.status === "completed",
+          note: task.description ?? undefined,
+        },
+      ];
     });
   }, [plannerTasks.data]);
   const categoryIds = React.useMemo(
-    () => new Map(plannerBootstrap.data?.categories.map((item) => [item.name, item.id])),
+    () =>
+      new Map(
+        plannerBootstrap.data?.categories.map((item) => [item.name, item.id])
+      ),
     [plannerBootstrap.data?.categories]
   );
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const [newTaskCategory, setNewTaskCategory] = React.useState<Category | null>(
     null
   );
-  const [selectedLesson, setSelectedLesson] = React.useState<
-    (typeof events)[number] | null
-  >(null);
+  const [selectedLesson, setSelectedLesson] =
+    React.useState<PlannerEvent | null>(null);
   const [dismissed, setDismissed] = React.useState<Set<string>>(
     () => new Set()
   );
@@ -274,6 +365,8 @@ export function StudioDashboard() {
           {screen === "planner" ? (
             <PlannerScreen
               tasks={tasks}
+              calendarEvents={calendarEvents}
+              calendarWeekStart={calendarWeekStart}
               onComplete={completeTask}
               onOpen={setSelectedTask}
               onAdd={setNewTaskCategory}
@@ -281,7 +374,25 @@ export function StudioDashboard() {
             />
           ) : null}
           {screen === "calendar" ? (
-            <CalendarScreen onLesson={setSelectedLesson} />
+            <CalendarScreen
+              events={calendarEvents}
+              weekStart={calendarWeekStart}
+              isLoading={plannerCalendar.isLoading}
+              onWeekChange={setCalendarWeekStart}
+              onCreate={(event) =>
+                plannerCalendar.create.mutateAsync(
+                  toCalendarEventInput(event, calendarWeekStart)
+                )
+              }
+              onUpdate={(event) =>
+                plannerCalendar.update.mutateAsync({
+                  id: event.id,
+                  ...toCalendarEventInput(event, calendarWeekStart),
+                })
+              }
+              onDelete={(id) => plannerCalendar.remove.mutateAsync(id)}
+              onLesson={setSelectedLesson}
+            />
           ) : null}
           {screen === "inbox" ? (
             <InboxScreen
@@ -295,9 +406,7 @@ export function StudioDashboard() {
               }}
             />
           ) : null}
-          {screen === "students" ? (
-            <PlannerStudentsScreen />
-          ) : null}
+          {screen === "students" ? <PlannerStudentsScreen /> : null}
         </main>
       </div>
       {selectedTask ? (
@@ -327,12 +436,16 @@ export function StudioDashboard() {
 
 function PlannerScreen({
   tasks,
+  calendarEvents,
+  calendarWeekStart,
   onComplete,
   onOpen,
   onAdd,
   onNavigate,
 }: {
   tasks: Task[];
+  calendarEvents: PlannerEvent[];
+  calendarWeekStart: Date;
   onComplete: (id: string) => void;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
@@ -365,7 +478,11 @@ function PlannerScreen({
           <Plus size={16} /> Новая задача
         </button>
       </section>
-      <HomeCalendar onOpen={() => onNavigate("calendar")} />
+      <HomeCalendar
+        events={calendarEvents}
+        weekStart={calendarWeekStart}
+        onOpen={() => onNavigate("calendar")}
+      />
       {!isEveningReview ? (
         <div className="planner-dashboard-review">
           <MorningReviewScreen
@@ -418,12 +535,26 @@ function PlannerScreen({
   );
 }
 
-function HomeCalendar({ onOpen }: { onOpen: () => void }) {
-  const days = ["Пн 21", "Вт 22", "Ср 23", "Чт 24", "Пт 25", "Сб 26", "Вс 27"];
+function HomeCalendar({
+  events,
+  weekStart,
+  onOpen,
+}: {
+  events: PlannerEvent[];
+  weekStart: Date;
+  onOpen: () => void;
+}) {
+  const days = weekDayDates(weekStart);
+  const today = localDateKey(new Date());
+  const rangeLabel =
+    `${days[0]!.getDate()}—${days[6]!.getDate()} ${new Intl.DateTimeFormat(
+      "ru-RU",
+      { month: "long" }
+    ).format(days[6]!)}`.toLocaleUpperCase("ru-RU");
   return (
     <section className="home-calendar" aria-label="Календарь недели">
       <header>
-        <span>НЕДЕЛЯ 21—27 СЕНТЯБРЯ</span>
+        <span>НЕДЕЛЯ {rangeLabel}</span>
         <button onClick={onOpen}>
           Развернуть <ChevronRight size={14} />
         </button>
@@ -436,25 +567,26 @@ function HomeCalendar({ onOpen }: { onOpen: () => void }) {
         </div>
         {days.map((day, index) => (
           <div
-            className={`home-day ${index === 2 ? "is-today" : ""}`}
-            key={day}
+            className={`home-day ${localDateKey(day) === today ? "is-today" : ""}`}
+            key={localDateKey(day)}
           >
-            <span>{day}</span>
-            {index === 1 ? (
-              <i className="home-event lesson" style={{ top: "28%" }}>
-                11:00 · Урок с Машей
-              </i>
-            ) : null}
-            {index === 2 ? (
-              <i className="home-event task" style={{ top: "48%" }}>
-                14:30 · Заявление
-              </i>
-            ) : null}
-            {index === 3 ? (
-              <i className="home-event meeting" style={{ top: "33%" }}>
-                12:00 · Созвон
-              </i>
-            ) : null}
+            <span>
+              {new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(
+                day
+              )}{" "}
+              {day.getDate()}
+            </span>
+            {events
+              .filter((event) => event.day === index)
+              .map((event) => (
+                <i
+                  className={`home-event ${event.kind}`}
+                  style={{ top: `${event.top}%` }}
+                  key={event.id}
+                >
+                  {event.time} · {event.title}
+                </i>
+              ))}
           </div>
         ))}
       </div>
@@ -522,17 +654,41 @@ function CategoryColumn({
   );
 }
 function CalendarScreen({
+  events,
+  weekStart,
+  isLoading,
+  onWeekChange,
+  onCreate,
+  onUpdate,
+  onDelete,
   onLesson,
 }: {
+  events: PlannerEvent[];
+  weekStart: Date;
+  isLoading: boolean;
+  onWeekChange: (weekStart: Date) => void;
+  onCreate: (event: PlannerEvent) => Promise<unknown>;
+  onUpdate: (event: PlannerEvent) => Promise<unknown>;
+  onDelete: (id: string) => Promise<unknown>;
   onLesson: (event: PlannerEvent) => void;
 }) {
-  const [calendarEvents, setCalendarEvents] = React.useState(events);
   const [dragged, setDragged] = React.useState<string | null>(null);
   const [dragPreview, setDragPreview] = React.useState<PlannerEvent | null>(
     null
   );
   const [editing, setEditing] = React.useState<PlannerEvent | null>(null);
-  const days = ["Пн, 21", "Вт, 22", "Ср, 23", "Чт, 24", "Пт, 25"];
+  const dates = weekDayDates(weekStart).slice(0, 5);
+  const todayKey = localDateKey(new Date());
+  const todayIndex = dates.findIndex((date) => localDateKey(date) === todayKey);
+  const days = dates.map(
+    (date) =>
+      `${new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date)}, ${date.getDate()}`
+  );
+  const rangeLabel = `${dates[0]!.getDate()}—${dates[4]!.getDate()} ${new Intl.DateTimeFormat(
+    "ru-RU",
+    { month: "long" }
+  ).format(dates[4]!)}`;
+  const visibleEvents = events.filter((event) => event.day < 5);
   const getPlacement = (
     event: React.DragEvent<HTMLDivElement>,
     day: number,
@@ -557,12 +713,20 @@ function CalendarScreen({
       top: 10 + (safeSlot / 17) * 79,
     };
   };
-  const save = (event: PlannerEvent) =>
-    setCalendarEvents((current) =>
-      current.some((item) => item.id === event.id)
-        ? current.map((item) => (item.id === event.id ? event : item))
-        : [...current, event]
-    );
+  const createDraft = (): PlannerEvent => ({
+    id: `new-${Date.now()}`,
+    day: todayIndex >= 0 ? todayIndex : 0,
+    top: eventTop("10:00"),
+    title: "",
+    time: "10:00",
+    kind: "meeting",
+    durationMinutes: 60,
+    studentId: null,
+    taskId: null,
+    description: null,
+    recurrence: "none",
+    isNew: true,
+  });
   return (
     <section className="calendar-screen">
       <div className="screen-heading">
@@ -571,25 +735,16 @@ function CalendarScreen({
           <h1>Неделя</h1>
         </div>
         <div className="calendar-controls">
-          <button>
+          <button onClick={() => onWeekChange(addCalendarDays(weekStart, -7))}>
             <ChevronLeft size={16} />
           </button>
-          <b>21—25 сентября</b>
-          <button>
+          <b>{rangeLabel}</b>
+          <button onClick={() => onWeekChange(addCalendarDays(weekStart, 7))}>
             <ChevronRight size={16} />
           </button>
           <button
             className="calendar-create"
-            onClick={() =>
-              setEditing({
-                id: `event-${Date.now()}`,
-                day: 2,
-                top: 35,
-                title: "",
-                time: "10:00",
-                kind: "event",
-              })
-            }
+            onClick={() => setEditing(createDraft())}
           >
             <Plus size={15} /> Событие
           </button>
@@ -611,17 +766,14 @@ function CalendarScreen({
             key={day}
             onDragOver={(event) => {
               event.preventDefault();
-              const source = calendarEvents.find((item) => item.id === dragged);
+              const source = visibleEvents.find((item) => item.id === dragged);
               if (source) setDragPreview(getPlacement(event, index, source));
             }}
             onDrop={(event) => {
               event.preventDefault();
-              const source = calendarEvents.find((item) => item.id === dragged);
+              const source = visibleEvents.find((item) => item.id === dragged);
               const next = source ? getPlacement(event, index, source) : null;
-              if (next)
-                setCalendarEvents((current) =>
-                  current.map((item) => (item.id === next.id ? next : item))
-                );
+              if (next) void onUpdate(next);
               setDragged(null);
               setDragPreview(null);
             }}
@@ -636,7 +788,7 @@ function CalendarScreen({
                 {dragPreview.title}
               </div>
             ) : null}
-            {calendarEvents
+            {visibleEvents
               .filter((event) => event.day === index)
               .map((event) => (
                 <button
@@ -666,23 +818,12 @@ function CalendarScreen({
               ))}
           </div>
         ))}
-        {!calendarEvents.length ? (
+        {!isLoading && !visibleEvents.length ? (
           <div className="calendar-empty-state">
             <CalendarDays size={19} />
             <b>Свободная неделя</b>
             <span>Добавьте встречу, урок или задачу со временем.</span>
-            <button
-              onClick={() =>
-                setEditing({
-                  id: `event-${Date.now()}`,
-                  day: 2,
-                  top: 35,
-                  title: "",
-                  time: "10:00",
-                  kind: "event",
-                })
-              }
-            >
+            <button onClick={() => setEditing(createDraft())}>
               <Plus size={14} /> Добавить событие
             </button>
           </div>
@@ -691,16 +832,18 @@ function CalendarScreen({
       {editing ? (
         <CalendarEventModal
           event={editing}
+          days={days}
           onClose={() => setEditing(null)}
           onSave={(event) => {
-            save(event);
-            setEditing(null);
+            const mutation = event.isNew ? onCreate(event) : onUpdate(event);
+            void mutation.then(() => setEditing(null));
           }}
           onDelete={(id) => {
-            setCalendarEvents((current) =>
-              current.filter((event) => event.id !== id)
-            );
-            setEditing(null);
+            if (editing.isNew) {
+              setEditing(null);
+              return;
+            }
+            void onDelete(id).then(() => setEditing(null));
           }}
         />
       ) : null}
@@ -709,16 +852,19 @@ function CalendarScreen({
 }
 function CalendarEventModal({
   event,
+  days,
   onClose,
   onSave,
   onDelete,
 }: {
   event: PlannerEvent;
+  days: string[];
   onClose: () => void;
   onSave: (event: PlannerEvent) => void;
   onDelete: (id: string) => void;
 }) {
   const [draft, setDraft] = React.useState(event);
+  const students = usePlannerStudents();
   return (
     <Modal onClose={onClose}>
       <div className="modal-top">
@@ -745,13 +891,11 @@ function CalendarEventModal({
               setDraft({ ...draft, day: Number(e.target.value) })
             }
           >
-            {["Пн, 21", "Вт, 22", "Ср, 23", "Чт, 24", "Пт, 25"].map(
-              (day, index) => (
-                <option key={day} value={index}>
-                  {day}
-                </option>
-              )
-            )}
+            {days.map((day, index) => (
+              <option key={day} value={index}>
+                {day}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -770,22 +914,50 @@ function CalendarEventModal({
         Тип
         <select
           value={draft.kind}
-          onChange={(e) =>
-            setDraft({ ...draft, kind: e.target.value as PlannerEvent["kind"] })
-          }
+          onChange={(e) => {
+            const kind = e.target.value as PlannerEvent["kind"];
+            setDraft({
+              ...draft,
+              kind,
+              studentId:
+                kind === "lesson"
+                  ? (draft.studentId ?? students.data?.[0]?.id ?? null)
+                  : null,
+            });
+          }}
         >
-          <option value="event">Встреча</option>
+          <option value="meeting">Встреча</option>
           <option value="task">Задача</option>
           <option value="lesson">Урок</option>
         </select>
       </label>
+      {draft.kind === "lesson" ? (
+        <label>
+          Ученик
+          <select
+            value={draft.studentId ?? ""}
+            onChange={(event) =>
+              setDraft({ ...draft, studentId: event.target.value || null })
+            }
+          >
+            <option value="">Выберите ученика</option>
+            {(students.data ?? []).map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <div className="modal-footer">
         <button className="delete-button" onClick={() => onDelete(draft.id)}>
           <Trash2 size={15} /> Удалить
         </button>
         <button
           className="complete-modal"
-          disabled={!draft.title.trim()}
+          disabled={
+            !draft.title.trim() || (draft.kind === "lesson" && !draft.studentId)
+          }
           onClick={() => onSave(draft)}
         >
           <Check size={16} /> Сохранить
@@ -1082,12 +1254,16 @@ function formatDueDate(value: string | null) {
     month: "long",
   }).format(new Date(`${value}T00:00:00`));
 }
-function recurrenceToLabel(value: PlannerTaskRow["recurrence"]): Task["repeat"] {
+function recurrenceToLabel(
+  value: PlannerTaskRow["recurrence"]
+): Task["repeat"] {
   if (value === "weekly") return "Каждую неделю";
   if (value === "monthly") return "Каждый месяц";
   return "Нет";
 }
-function labelToRecurrence(value: Task["repeat"]): PlannerTaskRow["recurrence"] {
+function labelToRecurrence(
+  value: Task["repeat"]
+): PlannerTaskRow["recurrence"] {
   if (value === "Каждую неделю") return "weekly";
   if (value === "Каждый месяц") return "monthly";
   return "none";
@@ -1318,7 +1494,7 @@ function LessonModal({
   lesson,
   onClose,
 }: {
-  lesson: (typeof events)[number];
+  lesson: PlannerEvent;
   onClose: () => void;
 }) {
   return (

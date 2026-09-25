@@ -34,15 +34,12 @@ export type CalendarEventInput = {
 };
 
 type EventRange = { from: string; to: string };
-const calendarKey = (userId?: string, range?: EventRange) => [
-  "planner",
-  "calendar-events",
-  userId,
-  range?.from,
-  range?.to,
-] as const;
+const calendarKey = (userId?: string, range?: EventRange) =>
+  ["planner", "calendar-events", userId, range?.from, range?.to] as const;
 
-async function getCalendarEvents(range: EventRange): Promise<PlannerCalendarEventRow[]> {
+async function getCalendarEvents(
+  range: EventRange
+): Promise<PlannerCalendarEventRow[]> {
   const { data, error } = await requireSupabase()
     .from("calendar_events")
     .select(
@@ -78,34 +75,73 @@ export function usePlannerCalendarEvents(range: EventRange) {
     staleTime: 30_000,
   });
   const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["planner", "calendar-events", session?.user.id] }),
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "lessons", session?.user.id],
+        }),
+      ]),
     [queryClient, session?.user.id]
   );
   const create = useMutation({
     mutationFn: async (input: CalendarEventInput) => {
-      const { error } = await requireSupabase().from("calendar_events").insert(toRow(input));
+      const { error } = await requireSupabase()
+        .from("calendar_events")
+        .insert(toRow(input));
       if (error) throw error;
     },
     onSuccess: invalidate,
   });
   const update = useMutation({
-    mutationFn: async ({ id, ...input }: CalendarEventInput & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...input
+    }: CalendarEventInput & { id: string }) => {
       const { error } = await requireSupabase()
         .from("calendar_events")
         .update(toRow(input))
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onMutate: async ({ id, ...input }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<PlannerCalendarEventRow[]>(key);
+      queryClient.setQueryData<PlannerCalendarEventRow[]>(key, (current) =>
+        current?.map((event) =>
+          event.id === id ? { ...event, ...toRow(input) } : event
+        )
+      );
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: invalidate,
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await requireSupabase().from("calendar_events").delete().eq("id", id);
+      const { error } = await requireSupabase()
+        .from("calendar_events")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<PlannerCalendarEventRow[]>(key);
+      queryClient.setQueryData<PlannerCalendarEventRow[]>(key, (current) =>
+        current?.filter((event) => event.id !== id)
+      );
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: invalidate,
   });
 
   return { ...query, create, update, remove };
 }
-

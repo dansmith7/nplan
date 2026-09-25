@@ -21,13 +21,8 @@ export type PlannerLessonRow = {
 };
 
 type LessonRange = { from: string; to: string };
-const lessonKey = (userId?: string, range?: LessonRange) => [
-  "planner",
-  "lessons",
-  userId,
-  range?.from,
-  range?.to,
-] as const;
+const lessonKey = (userId?: string, range?: LessonRange) =>
+  ["planner", "lessons", userId, range?.from, range?.to] as const;
 
 async function getLessons(range: LessonRange): Promise<PlannerLessonRow[]> {
   const { data, error } = await requireSupabase()
@@ -55,7 +50,15 @@ export function usePlannerLessons(range: LessonRange) {
     staleTime: 30_000,
   });
   const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["planner", "lessons", session?.user.id] }),
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "lessons", session?.user.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+      ]),
     [queryClient, session?.user.id]
   );
 
@@ -79,7 +82,13 @@ export function usePlannerLessons(range: LessonRange) {
   });
 
   const setStatus = useMutation({
-    mutationFn: async ({ eventId, status }: { eventId: string; status: LessonStatus }) => {
+    mutationFn: async ({
+      eventId,
+      status,
+    }: {
+      eventId: string;
+      status: LessonStatus;
+    }) => {
       const now = new Date().toISOString();
       const { error } = await requireSupabase()
         .from("lesson_notes")
@@ -96,7 +105,10 @@ export function usePlannerLessons(range: LessonRange) {
 
   const remove = useMutation({
     mutationFn: async (eventId: string) => {
-      const { error } = await requireSupabase().from("calendar_events").delete().eq("id", eventId);
+      const { error } = await requireSupabase()
+        .from("calendar_events")
+        .delete()
+        .eq("id", eventId);
       if (error) throw error;
     },
     onSuccess: invalidate,
@@ -104,4 +116,3 @@ export function usePlannerLessons(range: LessonRange) {
 
   return { ...query, saveNotes, setStatus, remove };
 }
-

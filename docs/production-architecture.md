@@ -2,18 +2,18 @@
 
 ## Current source of truth
 
-| Area | Current state | Production source |
-| --- | --- | --- |
-| Authentication | Supabase Auth | Supabase Auth |
-| Profile and categories | Supabase | `profiles`, `categories` |
-| Tasks | Supabase | `tasks`, `task_attachments` |
-| Students | Supabase CRUD and lesson history | `students`, `student_schedules` |
-| Calendar | Hardcoded week and in-memory drag state | `calendar_events` |
-| Lesson topic/homework | Saved from the student profile | `lesson_notes` |
-| Lesson attendance | Not implemented | `lesson_notes.status` |
-| Telegram/mail inbox | Hardcoded cards and local dismissal | `inbox_items` |
-| Morning/evening review | Real clock, hardcoded date/mail count | Database queries using profile timezone |
-| Notifications | Not connected | `notification_log` + server/desktop workers |
+| Area                   | Current state                             | Production source                           |
+| ---------------------- | ----------------------------------------- | ------------------------------------------- |
+| Authentication         | Supabase Auth                             | Supabase Auth                               |
+| Profile and categories | Supabase                                  | `profiles`, `categories`                    |
+| Tasks                  | Supabase                                  | `tasks`, `task_attachments`                 |
+| Students               | Supabase CRUD and lesson history          | `students`, `student_schedules`             |
+| Calendar               | Supabase-backed shared home/full calendar | `calendar_events`                           |
+| Lesson topic/homework  | Saved from the student profile            | `lesson_notes`                              |
+| Lesson attendance      | Not implemented                           | `lesson_notes.status`                       |
+| Telegram/mail inbox    | Hardcoded cards and local dismissal       | `inbox_items`                               |
+| Morning/evening review | Real clock, hardcoded date/mail count     | Database queries using profile timezone     |
+| Notifications          | Not connected                             | `notification_log` + server/desktop workers |
 
 ## Domain model
 
@@ -39,14 +39,11 @@ This separation is intentional:
 
 ## Remaining hardcoded UI to remove
 
-- fixed September dates and week labels;
-- fixed calendar events on the home and calendar screens;
 - fixed inbox messages and the `5 fresh` counter;
 - local `dismissed` inbox state;
 - student schedule editing and recurrence expansion UI;
 - task attachment controls that are still presentation-only;
 - fixed email and Telegram summaries;
-- calendar navigation arrows that do not change the queried range.
 
 ## Server boundaries
 

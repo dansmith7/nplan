@@ -19,6 +19,12 @@ export interface AppSettings {
   globalShortcutsEnabled: boolean;
 }
 
+export type NotificationPermissionState =
+  | "granted"
+  | "denied"
+  | "prompt"
+  | "unsupported";
+
 /**
  * Check if we're running in a Tauri desktop environment
  */
@@ -53,6 +59,44 @@ export async function showNotification(
       }
     }
   }
+}
+
+export async function getNotificationPermission(): Promise<NotificationPermissionState> {
+  if (isDesktop()) {
+    try {
+      const { isPermissionGranted } =
+        await import("@tauri-apps/plugin-notification");
+      return (await isPermissionGranted()) ? "granted" : "prompt";
+    } catch {
+      return "unsupported";
+    }
+  }
+
+  if (!("Notification" in window)) return "unsupported";
+  return Notification.permission === "default"
+    ? "prompt"
+    : Notification.permission;
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
+  if (isDesktop()) {
+    try {
+      const { requestPermission } =
+        await import("@tauri-apps/plugin-notification");
+      const permission = await requestPermission();
+      return permission === "granted"
+        ? "granted"
+        : permission === "denied"
+          ? "denied"
+          : "prompt";
+    } catch {
+      return "unsupported";
+    }
+  }
+
+  if (!("Notification" in window)) return "unsupported";
+  const permission = await Notification.requestPermission();
+  return permission === "default" ? "prompt" : permission;
 }
 
 /**
@@ -134,7 +178,9 @@ export async function listenToDesktopEvent<T>(
 /**
  * Hook for listening to quick-add-task event
  */
-export function onQuickAddTask(handler: () => void): Promise<(() => void) | null> {
+export function onQuickAddTask(
+  handler: () => void
+): Promise<(() => void) | null> {
   return listenToDesktopEvent("quick-add-task", handler);
 }
 

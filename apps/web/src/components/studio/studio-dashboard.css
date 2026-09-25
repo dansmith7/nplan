@@ -541,6 +541,10 @@ html.studio-shell-active #root {
   margin-top: auto;
   margin-bottom: 24px;
 }
+.sidebar-bell:hover {
+  color: var(--today);
+  background: #ffffff0a;
+}
 .planner-content {
   width: 100%;
   min-width: 0;
@@ -1698,6 +1702,102 @@ html.studio-shell-active #root {
 .attachment-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+.notification-copy {
+  margin: 0;
+  color: #716b62;
+  font: 400 15px/1.45 TTCommons;
+}
+.notification-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.notification-list > div {
+  min-height: 78px;
+  padding: 13px;
+  border: 1px solid #d7d0c6;
+  border-radius: 8px;
+  background: #fffdfa;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+}
+.notification-list b {
+  font: 600 17px/1 TTCommons;
+}
+.notification-list span {
+  color: #756f66;
+  font: 500 12px/1.2 TTCommons;
+}
+.notification-status {
+  min-height: 42px;
+  margin-bottom: 10px;
+  padding: 0 13px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/1 TTCommons;
+}
+.notification-status.is-enabled {
+  background: #e7eadf;
+  color: #4e5940;
+}
+.notification-toggle {
+  width: 100%;
+  min-height: 66px;
+  padding: 0 13px;
+  border: 1px solid #d7d0c6;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+.notification-toggle > span {
+  display: grid;
+  gap: 4px;
+}
+.notification-toggle b {
+  font: 600 14px/1 TTCommons;
+}
+.notification-toggle small {
+  color: #756f66;
+  font: 400 12px/1.2 TTCommons;
+}
+.notification-toggle i {
+  width: 34px;
+  height: 20px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #c9c3b9;
+  display: flex;
+  justify-content: flex-start;
+}
+.notification-toggle i::after {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  content: "";
+}
+.notification-toggle i.is-on {
+  justify-content: flex-end;
+  background: var(--today);
+}
+.notification-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.notification-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
 }
 .modal-footer button:disabled {
   cursor: not-allowed;

@@ -2,7 +2,7 @@ mod commands;
 mod menu;
 mod tray;
 
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -31,10 +31,15 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            let starts_minimized = std::env::args().any(|argument| argument == "--minimized");
+
             #[cfg(target_os = "macos")]
             if let Some(window) = app.get_webview_window("main") {
                 window.set_title_bar_style(tauri::TitleBarStyle::Transparent)?;
                 window.set_title("")?;
+                if starts_minimized {
+                    window.hide()?;
+                }
             }
 
             // Set up system tray
@@ -47,6 +52,14 @@ pub fn run() {
             register_global_shortcuts(app)?;
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::show_notification,

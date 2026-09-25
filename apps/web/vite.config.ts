@@ -3,6 +3,11 @@ import react from "@vitejs/plugin-react";
 import mdx from "@mdx-js/rollup";
 import remarkGfm from "remark-gfm";
 import path from "path";
+import { readFileSync } from "node:fs";
+
+const appVersion = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8")
+) as { version: string };
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -48,7 +53,7 @@ export default defineConfig({
   build: {
     // The desktop WebView keeps route chunks between app updates. Versioning
     // the asset directory prevents an installed app from rendering stale UI.
-    assetsDir: "assets-v1.0.13",
+    assetsDir: `assets-v${appVersion.version}`,
     sourcemap: true,
     // Modern targets only — Tauri ships its own webview, and the web build
     // already requires evergreen browsers. This shaves transpilation overhead.

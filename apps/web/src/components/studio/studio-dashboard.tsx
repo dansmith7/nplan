@@ -24,6 +24,16 @@ import {
 import "./studio-dashboard.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
+import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
+import {
+  getAutoLaunch,
+  getNotificationPermission,
+  isDesktop,
+  requestNotificationPermission,
+  setAutoLaunch,
+  showNotification,
+  type NotificationPermissionState,
+} from "@/lib/desktop";
 import {
   type PlannerTaskRow,
   usePlannerTasks,
@@ -225,6 +235,7 @@ function toCalendarEventInput(
 }
 export function StudioDashboard() {
   const plannerBootstrap = usePlannerBootstrap();
+  useDesktopNotifications(plannerBootstrap.data?.profile);
   const plannerTasks = usePlannerTasks();
   const plannerInbox = usePlannerInbox();
   const pendingLessons = usePendingLessonConfirmations();
@@ -320,6 +331,8 @@ export function StudioDashboard() {
   >(null);
   const [selectedLesson, setSelectedLesson] =
     React.useState<PlannerEvent | null>(null);
+  const [notificationSettingsOpen, setNotificationSettingsOpen] =
+    React.useState(false);
   const completeTask = React.useCallback(
     async (id: string) => {
       const task = tasks.find((item) => item.id === id);
@@ -404,9 +417,9 @@ export function StudioDashboard() {
         </nav>
         <button
           className="sidebar-bell"
-          aria-label="Уведомления — следующий этап"
-          title="Уведомления — следующий этап"
-          disabled
+          aria-label="Настройки уведомлений"
+          title="Настройки уведомлений"
+          onClick={() => setNotificationSettingsOpen(true)}
         >
           <Bell size={17} />
         </button>
@@ -558,6 +571,11 @@ export function StudioDashboard() {
             await lessonConfirmation.remove.mutateAsync(selectedLesson.id);
             setSelectedLesson(null);
           }}
+        />
+      ) : null}
+      {notificationSettingsOpen ? (
+        <NotificationSettingsModal
+          onClose={() => setNotificationSettingsOpen(false)}
         />
       ) : null}
     </div>
@@ -1893,6 +1911,147 @@ function LessonModal({
           <Check size={16} /> {isSaving ? "Сохраняю…" : "Сохранить"}
         </button>
       </div>
+    </Modal>
+  );
+}
+
+function NotificationSettingsModal({ onClose }: { onClose: () => void }) {
+  const desktop = isDesktop();
+  const [permission, setPermission] =
+    React.useState<NotificationPermissionState>("prompt");
+  const [autoLaunch, setAutoLaunchState] = React.useState(false);
+  const [isBusy, setIsBusy] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    void Promise.all([getNotificationPermission(), getAutoLaunch()]).then(
+      ([nextPermission, nextAutoLaunch]) => {
+        if (!active) return;
+        setPermission(nextPermission);
+        setAutoLaunchState(nextAutoLaunch);
+        setIsBusy(false);
+      }
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const enable = async () => {
+    setError(null);
+    setIsBusy(true);
+    const nextPermission = await requestNotificationPermission();
+    setPermission(nextPermission);
+    if (nextPermission === "granted") {
+      const autoLaunchEnabled = await setAutoLaunch(true);
+      setAutoLaunchState(autoLaunchEnabled);
+      window.dispatchEvent(new Event("nplan-notifications-changed"));
+      await showNotification({
+        title: "NPlan готов напоминать",
+        body: "Утренняя и вечерняя сводки, дедлайны и уроки включены.",
+      });
+    } else if (nextPermission === "denied") {
+      setError("Разрешите уведомления для NPlan в настройках macOS.");
+    }
+    setIsBusy(false);
+  };
+
+  const toggleAutoLaunch = async () => {
+    setError(null);
+    setIsBusy(true);
+    const next = !autoLaunch;
+    if (await setAutoLaunch(next)) setAutoLaunchState(next);
+    else setError("Не удалось изменить автозапуск.");
+    setIsBusy(false);
+  };
+
+  const test = async () => {
+    setError(null);
+    try {
+      await showNotification({
+        title: "Тестовое уведомление NPlan",
+        body: "Всё работает — важные задачи не потеряются.",
+      });
+    } catch {
+      setError("Не удалось показать уведомление.");
+    }
+  };
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="modal-top">
+        <span>УВЕДОМЛЕНИЯ</span>
+        <button onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <h2>Не пропустить важное.</h2>
+      {!desktop ? (
+        <p className="notification-copy">
+          Системные уведомления доступны в приложении NPlan для Mac. Веб-версия
+          продолжит показывать сводки внутри планнера.
+        </p>
+      ) : (
+        <>
+          <div className="notification-list">
+            <div>
+              <b>10:15</b>
+              <span>Утренняя сводка</span>
+            </div>
+            <div>
+              <b>17:50</b>
+              <span>Закрыть день</span>
+            </div>
+            <div>
+              <b>−1 час</b>
+              <span>Напоминание об уроке</span>
+            </div>
+            <div>
+              <b>В срок</b>
+              <span>Задача с указанным временем</span>
+            </div>
+          </div>
+          {permission === "granted" ? (
+            <div className="notification-status is-enabled">
+              <Check size={16} /> Системные уведомления включены
+            </div>
+          ) : null}
+          <button
+            className="notification-toggle"
+            type="button"
+            disabled={isBusy || permission !== "granted"}
+            onClick={() => void toggleAutoLaunch()}
+          >
+            <span>
+              <b>Запускать вместе с Mac</b>
+              <small>Чтобы напоминания приходили без открытого окна</small>
+            </span>
+            <i className={autoLaunch ? "is-on" : ""} aria-hidden="true" />
+          </button>
+          {error ? <p className="modal-error">{error}</p> : null}
+          <div className="notification-actions">
+            {permission !== "granted" ? (
+              <button
+                className="complete-modal"
+                disabled={isBusy || permission === "unsupported"}
+                onClick={() => void enable()}
+              >
+                <Bell size={16} />
+                {isBusy ? "Проверяю…" : "Включить уведомления"}
+              </button>
+            ) : (
+              <button
+                className="complete-modal"
+                disabled={isBusy}
+                onClick={() => void test()}
+              >
+                <Bell size={16} /> Проверить уведомление
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

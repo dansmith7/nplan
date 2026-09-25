@@ -35,6 +35,10 @@ import {
   usePlannerCalendarEvents,
 } from "@/hooks/use-planner-calendar-events";
 import { usePlannerStudents } from "@/hooks/use-planner-students";
+import {
+  type PlannerInboxRow,
+  usePlannerInbox,
+} from "@/hooks/use-planner-inbox";
 
 type Screen = "planner" | "calendar" | "inbox" | "students";
 type Category =
@@ -187,30 +191,10 @@ function toCalendarEventInput(
     recurrence: event.recurrence,
   };
 }
-const inboxItems = [
-  {
-    source: "Telegram",
-    title: "Попросила прислать счёт до пятницы",
-    body: "Голосовое · расшифровка готова",
-    type: "telegram",
-  },
-  {
-    source: "Почта",
-    title: "Документы для регистрации поставщика",
-    body: "Письмо от Анны Петровой · 09:41",
-    type: "mail",
-  },
-  {
-    source: "Почта",
-    title: "Новая версия договора",
-    body: "Письмо от Ивана Смирнова · вчера",
-    type: "mail",
-  },
-] as const;
-
 export function StudioDashboard() {
   const plannerBootstrap = usePlannerBootstrap();
   const plannerTasks = usePlannerTasks();
+  const plannerInbox = usePlannerInbox();
   const [calendarWeekStart, setCalendarWeekStart] = React.useState(() =>
     startOfPlannerWeek(new Date())
   );
@@ -271,11 +255,15 @@ export function StudioDashboard() {
   const [newTaskCategory, setNewTaskCategory] = React.useState<Category | null>(
     null
   );
+  const [inboxTaskDraft, setInboxTaskDraft] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [taskCreationError, setTaskCreationError] = React.useState<
+    string | null
+  >(null);
   const [selectedLesson, setSelectedLesson] =
     React.useState<PlannerEvent | null>(null);
-  const [dismissed, setDismissed] = React.useState<Set<string>>(
-    () => new Set()
-  );
   const completeTask = React.useCallback(
     (id: string) => {
       const task = tasks.find((item) => item.id === id);
@@ -304,17 +292,29 @@ export function StudioDashboard() {
     (draft: Pick<Task, "title" | "category" | "date" | "time" | "repeat">) => {
       const categoryId = categoryIds.get(draft.category);
       if (!categoryId) return;
-      void plannerTasks.create
-        .mutateAsync({
-          title: draft.title,
-          categoryId,
-          dueDate: draft.date || null,
-          dueTime: draft.time || null,
-          recurrence: labelToRecurrence(draft.repeat),
+      setTaskCreationError(null);
+      const input = {
+        title: draft.title,
+        categoryId,
+        dueDate: draft.date || null,
+        dueTime: draft.time || null,
+        recurrence: labelToRecurrence(draft.repeat),
+      };
+      const mutation = inboxTaskDraft
+        ? plannerInbox.promote.mutateAsync({ id: inboxTaskDraft.id, ...input })
+        : plannerTasks.create.mutateAsync(input);
+      void mutation
+        .then(() => {
+          setNewTaskCategory(null);
+          setInboxTaskDraft(null);
         })
-        .then(() => setNewTaskCategory(null));
+        .catch(() => {
+          setTaskCreationError(
+            "Не удалось создать задачу. Попробуйте ещё раз."
+          );
+        });
     },
-    [categoryIds, plannerTasks.create]
+    [categoryIds, inboxTaskDraft, plannerInbox.promote, plannerTasks.create]
   );
   const navigation: Array<{
     id: Screen;
@@ -367,9 +367,13 @@ export function StudioDashboard() {
               tasks={tasks}
               calendarEvents={calendarEvents}
               calendarWeekStart={calendarWeekStart}
+              inboxItems={plannerInbox.data ?? []}
               onComplete={completeTask}
               onOpen={setSelectedTask}
-              onAdd={setNewTaskCategory}
+              onAdd={(category) => {
+                setTaskCreationError(null);
+                setNewTaskCategory(category);
+              }}
               onNavigate={setScreen}
             />
           ) : null}
@@ -396,13 +400,13 @@ export function StudioDashboard() {
           ) : null}
           {screen === "inbox" ? (
             <InboxScreen
-              dismissed={dismissed}
-              onDismiss={(title) =>
-                setDismissed((current) => new Set(current).add(title))
-              }
-              onCreate={(title) => {
-                setNewTaskCategory("Китай");
-                setDismissed((current) => new Set(current).add(title));
+              items={plannerInbox.data ?? []}
+              isLoading={plannerInbox.isLoading}
+              onDismiss={(id) => void plannerInbox.dismiss.mutateAsync(id)}
+              onCreate={(item) => {
+                setTaskCreationError(null);
+                setInboxTaskDraft({ id: item.id, title: item.title });
+                setNewTaskCategory("Личное");
               }}
             />
           ) : null}
@@ -420,7 +424,16 @@ export function StudioDashboard() {
       {newTaskCategory ? (
         <CreateTaskModal
           category={newTaskCategory}
-          onClose={() => setNewTaskCategory(null)}
+          initialTitle={inboxTaskDraft?.title}
+          error={taskCreationError}
+          isCreating={
+            plannerTasks.create.isPending || plannerInbox.promote.isPending
+          }
+          onClose={() => {
+            setNewTaskCategory(null);
+            setInboxTaskDraft(null);
+            setTaskCreationError(null);
+          }}
           onCreate={addTask}
         />
       ) : null}
@@ -438,6 +451,7 @@ function PlannerScreen({
   tasks,
   calendarEvents,
   calendarWeekStart,
+  inboxItems,
   onComplete,
   onOpen,
   onAdd,
@@ -446,6 +460,7 @@ function PlannerScreen({
   tasks: Task[];
   calendarEvents: PlannerEvent[];
   calendarWeekStart: Date;
+  inboxItems: PlannerInboxRow[];
   onComplete: (id: string) => void;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
@@ -487,6 +502,7 @@ function PlannerScreen({
         <div className="planner-dashboard-review">
           <MorningReviewScreen
             tasks={tasks}
+            inboxItems={inboxItems}
             onOpen={onOpen}
             onNavigate={onNavigate}
           />
@@ -967,15 +983,16 @@ function CalendarEventModal({
   );
 }
 function InboxScreen({
-  dismissed,
+  items,
+  isLoading,
   onDismiss,
   onCreate,
 }: {
-  dismissed: Set<string>;
-  onDismiss: (title: string) => void;
-  onCreate: (title: string) => void;
+  items: PlannerInboxRow[];
+  isLoading: boolean;
+  onDismiss: (id: string) => void;
+  onCreate: (item: PlannerInboxRow) => void;
 }) {
-  const visible = inboxItems.filter((item) => !dismissed.has(item.title));
   return (
     <section className="inbox-screen">
       <div className="screen-heading">
@@ -986,37 +1003,49 @@ function InboxScreen({
         <p>Здесь только то, что может стать задачей.</p>
       </div>
       <div className="inbox-list">
-        {visible.length ? (
-          visible.map((item) => (
-            <article key={item.title} className="inbox-card">
-              <div className={`source-mark ${item.type}`}>
-                {item.type === "telegram" ? (
-                  <Send size={16} />
-                ) : (
-                  <FileText size={16} />
-                )}
-              </div>
-              <div className="inbox-copy">
-                <span>{item.source}</span>
-                <h2>{item.title}</h2>
-                <p>{item.body}</p>
-              </div>
-              <div className="inbox-actions">
-                <button
-                  className="create-from-inbox"
-                  onClick={() => onCreate(item.title)}
+        {isLoading ? (
+          <div className="empty-inbox">Загружаю входящие…</div>
+        ) : items.length ? (
+          items.map((item) => {
+            const isTelegram = item.source === "telegram";
+            const receivedAt = new Intl.DateTimeFormat("ru-RU", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(item.received_at));
+            const details = item.transcript || item.raw_text;
+            return (
+              <article key={item.id} className="inbox-card">
+                <div
+                  className={`source-mark ${isTelegram ? "telegram" : "mail"}`}
                 >
-                  <Plus size={15} /> Создать задачу
-                </button>
-                <button
-                  className="dismiss-inbox"
-                  onClick={() => onDismiss(item.title)}
-                >
-                  Не создавать
-                </button>
-              </div>
-            </article>
-          ))
+                  {isTelegram ? <Send size={16} /> : <FileText size={16} />}
+                </div>
+                <div className="inbox-copy">
+                  <span>
+                    {isTelegram ? "Telegram" : "Яндекс Почта"} · {receivedAt}
+                  </span>
+                  <h2>{item.title}</h2>
+                  <p>{details || "Без дополнительного текста"}</p>
+                </div>
+                <div className="inbox-actions">
+                  <button
+                    className="create-from-inbox"
+                    onClick={() => onCreate(item)}
+                  >
+                    <Plus size={15} /> Создать задачу
+                  </button>
+                  <button
+                    className="dismiss-inbox"
+                    onClick={() => onDismiss(item.id)}
+                  >
+                    Не создавать
+                  </button>
+                </div>
+              </article>
+            );
+          })
         ) : (
           <div className="empty-inbox">
             <Check size={22} /> Входящие разобраны
@@ -1029,15 +1058,18 @@ function InboxScreen({
 
 function MorningReviewScreen({
   tasks,
+  inboxItems,
   onOpen,
   onNavigate,
 }: {
   tasks: Task[];
+  inboxItems: PlannerInboxRow[];
   onOpen: (task: Task) => void;
   onNavigate: (screen: Screen) => void;
 }) {
   const overdue = tasks.filter((task) => task.due === "overdue" && !task.done);
   const today = tasks.filter((task) => task.due === "today" && !task.done);
+  const mailItems = inboxItems.filter((item) => item.source === "yandex_mail");
 
   return (
     <section className="daily-review morning-review">
@@ -1064,16 +1096,19 @@ function MorningReviewScreen({
           onOpen={onOpen}
         />
         <section className="review-panel mail-panel">
-          <span>ПОЧТА · 5 СВЕЖИХ</span>
+          <span>ПОЧТА · {mailItems.length} СВЕЖИХ</span>
           <h2>Посмотреть потом</h2>
           <div className="review-mail-list">
-            {inboxItems.slice(1).map((item) => (
-              <button key={item.title} onClick={() => onNavigate("inbox")}>
+            {mailItems.slice(0, 5).map((item) => (
+              <button key={item.id} onClick={() => onNavigate("inbox")}>
                 <FileText size={15} />
                 <span>{item.title}</span>
                 <ChevronRight size={14} />
               </button>
             ))}
+            {!mailItems.length ? (
+              <small>Новых писем для разбора нет</small>
+            ) : null}
           </div>
           <button className="quiet-link" onClick={() => onNavigate("inbox")}>
             Открыть входящие <ChevronRight size={14} />
@@ -1393,16 +1428,22 @@ function TaskModal({
 }
 function CreateTaskModal({
   category,
+  initialTitle,
+  isCreating,
+  error,
   onClose,
   onCreate,
 }: {
   category: Category;
+  initialTitle?: string;
+  isCreating: boolean;
+  error: string | null;
   onClose: () => void;
   onCreate: (
     task: Pick<Task, "title" | "category" | "date" | "time" | "repeat">
   ) => void;
 }) {
-  const [title, setTitle] = React.useState("");
+  const [title, setTitle] = React.useState(initialTitle ?? "");
   const [target, setTarget] = React.useState(category);
   const [date, setDate] = React.useState("");
   const [time, setTime] = React.useState("");
@@ -1472,8 +1513,9 @@ function CreateTaskModal({
           </select>
         </label>
       </div>
+      {error ? <p className="modal-error">{error}</p> : null}
       <button
-        disabled={!title.trim()}
+        disabled={!title.trim() || isCreating}
         className="complete-modal"
         onClick={() =>
           onCreate({
@@ -1485,7 +1527,7 @@ function CreateTaskModal({
           })
         }
       >
-        <Plus size={16} /> Создать
+        <Plus size={16} /> {isCreating ? "Создаю…" : "Создать"}
       </button>
     </Modal>
   );

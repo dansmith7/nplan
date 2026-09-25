@@ -31,6 +31,12 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_title_bar_style(tauri::TitleBarStyle::Transparent)?;
+                window.set_title("")?;
+            }
+
             // Set up system tray
             tray::create_tray(app)?;
 

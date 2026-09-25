@@ -5,6 +5,17 @@
   font-weight: 400;
   font-display: swap;
 }
+html.studio-shell-active,
+body.studio-shell-active,
+html.studio-shell-active #root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  background: #0b0b0a;
+}
 @font-face {
   font-family: TTCommons;
   src: url("../../assets/fonts/tt-commons/tt-commons/TTF/TTCommons-DemiBold.ttf")
@@ -473,11 +484,21 @@
 }
 .planner-shell {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   background: var(--black);
   color: var(--paper);
   font-family: TTCommons, sans-serif;
   letter-spacing: -0.015em;
   display: flex;
+}
+.planner-shell,
+.planner-shell *,
+.planner-shell *::before,
+.planner-shell *::after {
+  box-sizing: border-box;
 }
 .planner-sidebar {
   width: 74px;
@@ -522,15 +543,107 @@
 }
 .planner-content {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding-left: 74px;
 }
 .planner-header {
+  position: relative;
   height: 80px;
   padding: 0 var(--space-6);
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
+}
+.tauri-window .planner-header {
+  height: 80px;
+}
+.header-identity {
+  display: grid;
+  gap: 2px;
+}
+.header-clocks {
+  position: absolute;
+  left: calc(50% - 37px);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.world-clock {
+  min-width: 106px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #77736c;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    "label time"
+    "utc time";
+  align-items: baseline;
+  justify-content: center;
+  column-gap: 5px;
+  font-family: TTCommons, sans-serif;
+  transition: color 160ms ease;
+}
+.world-clock:last-child {
+  grid-template-areas:
+    "time label"
+    "time utc";
+}
+.planner-header .world-clock strong {
+  grid-area: time;
+  grid-row: 1 / 3;
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+.world-clock span,
+.world-clock small {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+.world-clock span {
+  grid-area: label;
+}
+.world-clock small {
+  grid-area: utc;
+  opacity: 0.62;
+}
+.world-clock.active {
+  color: var(--paper);
+}
+.clock-switch {
+  position: relative;
+  width: 39px;
+  height: 21px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #f4f1eb40;
+  border-radius: 999px;
+  background: #201f1c;
+  cursor: pointer;
+}
+.clock-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--today);
+  box-shadow: 0 0 0 1px #00000029;
+  transition: transform 180ms ease;
+}
+.clock-switch.right span {
+  transform: translateX(18px);
 }
 .planner-eyebrow,
 .screen-heading > div > span,
@@ -562,6 +675,8 @@
   cursor: pointer;
 }
 .planner-content main {
+  width: 100%;
+  min-width: 0;
   max-width: 1600px;
   margin: auto;
   padding: var(--space-6) var(--space-6) 80px;
@@ -1641,6 +1756,19 @@
   .planner-header {
     height: 64px;
     padding: 0 20px;
+  }
+  .header-identity {
+    display: none;
+  }
+  .header-clocks {
+    left: calc(50% - 28px);
+    gap: 7px;
+  }
+  .world-clock {
+    min-width: 86px;
+  }
+  .planner-header .world-clock strong {
+    font-size: 21px;
   }
   .planner-content main {
     padding: 32px 20px;

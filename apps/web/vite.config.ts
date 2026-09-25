@@ -46,6 +46,9 @@ export default defineConfig({
     ],
   },
   build: {
+    // The desktop WebView keeps route chunks between app updates. Versioning
+    // the asset directory prevents an installed app from rendering stale UI.
+    assetsDir: "assets-v1.0.13",
     sourcemap: true,
     // Modern targets only — Tauri ships its own webview, and the web build
     // already requires evergreen browsers. This shaves transpilation overhead.

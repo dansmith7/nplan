@@ -94,6 +94,15 @@ function formatCurrentDate(date: Date, timezone?: string) {
   const month = parts.find((part) => part.type === "month")?.value ?? "";
   return { weekday, date: `${day} ${month}` };
 }
+
+function formatClockTime(date: Date, timezone: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: timezone,
+  }).format(date);
+}
 type PlannerEvent = {
   id: string;
   day: number;
@@ -233,10 +242,30 @@ export function StudioDashboard() {
       }),
     [calendarWeekStart, plannerCalendar.data]
   );
+  const [headerNow, setHeaderNow] = React.useState(() => new Date());
+  const [activeClock, setActiveClock] = React.useState<"moscow" | "guangzhou">(
+    "moscow"
+  );
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setHeaderNow(new Date()), 30_000);
+    const root = document.documentElement;
+    const body = document.body;
+    const isTauri = "__TAURI_INTERNALS__" in window;
+    root.classList.add("studio-shell-active");
+    body.classList.add("studio-shell-active");
+    root.classList.toggle("tauri-window", isTauri);
+    return () => {
+      window.clearInterval(timer);
+      root.classList.remove("studio-shell-active", "tauri-window");
+      body.classList.remove("studio-shell-active");
+    };
+  }, []);
   const currentDate = formatCurrentDate(
-    new Date(),
+    headerNow,
     plannerBootstrap.data?.profile.timezone
   );
+  const moscowTime = formatClockTime(headerNow, "Europe/Moscow");
+  const guangzhouTime = formatClockTime(headerNow, "Asia/Shanghai");
   const displayName = plannerBootstrap.data?.profile.display_name;
   const headerName =
     displayName && !displayName.includes("@")
@@ -367,10 +396,44 @@ export function StudioDashboard() {
         </button>
       </aside>
       <div className="planner-content">
-        <header className="planner-header">
-          <div>
+        <header className="planner-header" data-tauri-drag-region>
+          <div className="header-identity">
             <span className="planner-eyebrow">ЛИЧНЫЙ ПЛАННЕР</span>
             <strong>{headerName}</strong>
+          </div>
+          <div className="header-clocks" aria-label="Москва и Гуанчжоу">
+            <button
+              className={`world-clock ${activeClock === "moscow" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveClock("moscow")}
+            >
+              <span>МОСКВА</span>
+              <strong>{moscowTime}</strong>
+              <small>UTC+3</small>
+            </button>
+            <button
+              className={`clock-switch ${activeClock === "guangzhou" ? "right" : ""}`}
+              type="button"
+              role="switch"
+              aria-checked={activeClock === "guangzhou"}
+              aria-label="Переключить основной часовой пояс"
+              onClick={() =>
+                setActiveClock((value) =>
+                  value === "moscow" ? "guangzhou" : "moscow"
+                )
+              }
+            >
+              <span />
+            </button>
+            <button
+              className={`world-clock ${activeClock === "guangzhou" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveClock("guangzhou")}
+            >
+              <strong>{guangzhouTime}</strong>
+              <span>ГУАНЧЖОУ</span>
+              <small>UTC+8</small>
+            </button>
           </div>
           <div className="header-date">
             <span>{currentDate.weekday}</span>

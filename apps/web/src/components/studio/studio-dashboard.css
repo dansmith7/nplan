@@ -1397,11 +1397,24 @@
 .complete-modal {
   border: 0;
   border-radius: 6px;
-  padding: 10px 12px;
-  font: 600 13px TTCommons;
-  display: flex;
-  gap: 6px;
+  min-height: 48px;
+  padding: 0 18px;
+  font: 600 15px/1 TTCommons;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
+}
+.complete-modal svg {
+  flex: 0 0 auto;
+}
+.delete-button {
+  min-height: auto;
+  padding: 10px 12px;
+  font-size: 13px;
 }
 .delete-button {
   background: transparent;

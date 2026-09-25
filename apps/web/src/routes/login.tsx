@@ -42,14 +42,26 @@ function SupabaseLoginPage() {
     if (!supabase) return;
     setIsLoading(true);
     setError(null);
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setIsLoading(false);
-    if (authError) {
-      setError("Не удалось войти. Проверьте почту и пароль.");
-      return;
+
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (authError || !data.session) {
+        setError("Не удалось войти. Проверьте почту и пароль.");
+        return;
+      }
+
+      // Do not wait for the auth-state subscription here. A full navigation
+      // reads the persisted Supabase session on /app and avoids a race between
+      // the subscription callback and TanStack Router's transition.
+      window.location.replace(redirect || "/app");
+    } catch {
+      setError("Не удалось подключиться к сервису входа. Попробуйте ещё раз.");
+    } finally {
+      setIsLoading(false);
     }
   };
 

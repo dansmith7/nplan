@@ -44,13 +44,27 @@ function SupabaseLoginPage() {
     setError(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const loginResponse = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
+      const loginPayload = (await loginResponse.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+      };
 
-      if (authError || !data.session) {
+      if (!loginResponse.ok || !loginPayload.access_token || !loginPayload.refresh_token) {
         setError("Не удалось войти. Проверьте почту и пароль.");
+        return;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: loginPayload.access_token,
+        refresh_token: loginPayload.refresh_token,
+      });
+      if (sessionError) {
+        setError("Не удалось сохранить сессию. Попробуйте ещё раз.");
         return;
       }
 

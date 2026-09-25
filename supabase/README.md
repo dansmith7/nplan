@@ -25,3 +25,11 @@
    ```
 
 Never add a Supabase service-role key to a Vite `VITE_*` variable. That key will be used only by future server-side Telegram, mail and cron workers.
+
+## Telegram inbox
+
+`functions/telegram-webhook` accepts private text messages from one allowed
+Telegram chat and saves them to `inbox_items`. Configure its four secrets from
+`functions/.env.example`, deploy it without Supabase JWT verification, and set
+the Telegram webhook with the same `TELEGRAM_WEBHOOK_SECRET` as its
+`secret_token`.

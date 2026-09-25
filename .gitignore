@@ -1,0 +1,63 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Turbo
+.turbo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.dev
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache
+.vite
+.local
+
+# Drizzle
+drizzle/*.sql
+
+# Expo (mobile)
+.expo
+expo-env.d.ts
+
+# Tauri (desktop & mobile)
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+apps/mobile/src-tauri/target
+apps/mobile/src-tauri/gen

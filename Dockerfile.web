@@ -1,0 +1,52 @@
+# Build stage
+FROM oven/bun:1.2.21 AS builder
+
+WORKDIR /app
+
+# Copy root package files, lockfile, and base tsconfig
+COPY package.json bun.lock turbo.json tsconfig.base.json ./
+
+# Copy ALL package.json files first (needed for workspace resolution)
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/desktop/package.json ./apps/desktop/
+COPY apps/mobile/package.json ./apps/mobile/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/utils/package.json ./packages/utils/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY mcp/package.json ./mcp/
+
+# Install dependencies (allow lockfile updates for cross-platform compatibility)
+RUN bun install
+
+# Copy source code for packages we need to build
+COPY packages/types/ ./packages/types/
+COPY packages/utils/ ./packages/utils/
+COPY packages/api-client/ ./packages/api-client/
+COPY apps/web/ ./apps/web/
+
+# Build args for environment variables needed at build time
+ARG VITE_API_URL
+ARG VITE_WS_URL
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_URL=$VITE_WS_URL
+
+# Build the packages and web app
+RUN bun run build --filter=@open-sunsama/types --filter=@open-sunsama/utils --filter=@open-sunsama/api-client --filter=@open-sunsama/web
+
+# Production stage - serve static files
+FROM oven/bun:1.2.21-slim
+
+WORKDIR /app
+
+# Copy built static files and the server from builder
+COPY --from=builder /app/apps/web/dist ./dist
+COPY --from=builder /app/apps/web/server.ts ./server.ts
+
+# Expose port
+ENV PORT=3000
+EXPOSE 3000
+
+# Static server with SPA fallback that serves pre-rendered blog pages
+CMD ["bun", "run", "server.ts"]

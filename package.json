@@ -1,0 +1,75 @@
+{
+  "name": "open-sunsama",
+  "description": "Open-source, AI agent friendly Sunsama alternative with direct API access",
+  "version": "1.0.12",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "~19.1.10",
+    "@types/react-dom": "~19.1.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShadowWalker2014/open-sunsama.git"
+  },
+  "homepage": "https://opensunsama.com",
+  "bugs": {
+    "url": "https://github.com/ShadowWalker2014/open-sunsama/issues"
+  },
+  "keywords": [
+    "task-management",
+    "time-blocking",
+    "productivity",
+    "calendar",
+    "ai",
+    "mcp",
+    "claude",
+    "sunsama",
+    "open-source",
+    "self-hosted"
+  ],
+  "packageManager": "bun@1.2.21",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "mcp"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --filter='!@open-sunsama/desktop' --filter='!@open-sunsama/mobile' --filter='!@open-sunsama/expo-mobile'",
+    "dev:web": "turbo run dev --filter=@open-sunsama/web --filter=@open-sunsama/api --filter=./packages/*",
+    "dev:desktop": "turbo run dev --filter=@open-sunsama/desktop --filter=@open-sunsama/api --filter=./packages/*",
+    "dev:mobile:ios": "turbo run dev:ios --filter=@open-sunsama/mobile --filter=@open-sunsama/api --filter=./packages/*",
+    "dev:mobile:android": "turbo run dev:android --filter=@open-sunsama/mobile --filter=@open-sunsama/api --filter=./packages/*",
+    "dev:expo": "turbo run dev --filter=@open-sunsama/expo-mobile --filter=@open-sunsama/api --filter=./packages/*",
+    "dev:all": "turbo run dev",
+    "build": "turbo run build",
+    "build:mobile:ios": "turbo run build:ios --filter=@open-sunsama/mobile",
+    "build:mobile:android": "turbo run build:android --filter=@open-sunsama/mobile",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "turbo run db:generate --filter=@open-sunsama/database",
+    "db:migrate": "turbo run db:migrate --filter=@open-sunsama/database",
+    "db:push": "turbo run db:push --filter=@open-sunsama/database",
+    "db:studio": "turbo run db:studio --filter=@open-sunsama/database",
+    "release": "node scripts/release.mjs",
+    "version:sync": "node -e \"const v=require('./package.json').version; const fs=require('fs'); ['apps/api/package.json','apps/web/package.json','apps/desktop/package.json','apps/desktop/src-tauri/tauri.conf.json','apps/mobile/package.json','apps/mobile/src-tauri/tauri.conf.json','apps/expo-mobile/package.json'].forEach(f=>{const j=JSON.parse(fs.readFileSync(f));j.version=v;fs.writeFileSync(f,JSON.stringify(j,null,2)+'\\n');console.log('✓',f,'→',v)});\""
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.0.0"
+  },
+  "dependencies": {}
+}

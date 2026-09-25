@@ -1,0 +1,57 @@
+# Build stage - API service
+FROM oven/bun:1.2.21 AS builder
+
+WORKDIR /app
+
+# Copy root package files, lockfile, and base tsconfig
+COPY package.json bun.lock turbo.json tsconfig.base.json ./
+
+# Copy ALL package.json files first (needed for workspace resolution)
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/desktop/package.json ./apps/desktop/
+COPY apps/mobile/package.json ./apps/mobile/
+COPY packages/database/package.json ./packages/database/
+COPY packages/types/package.json ./packages/types/
+COPY packages/utils/package.json ./packages/utils/
+COPY packages/api-client/package.json ./packages/api-client/
+COPY mcp/package.json ./mcp/
+
+# Install dependencies (allow lockfile updates for cross-platform compatibility)
+RUN bun install
+
+# Copy source code for packages we need to build
+COPY packages/database/ ./packages/database/
+COPY packages/types/ ./packages/types/
+COPY packages/utils/ ./packages/utils/
+COPY mcp/ ./mcp/
+COPY apps/api/ ./apps/api/
+
+# Build the packages and API (workspace deps are bundled via tsup noExternal)
+RUN bun run build --filter=@open-sunsama/database --filter=@open-sunsama/types --filter=@open-sunsama/utils --filter=@open-sunsama/api
+
+# Production stage
+FROM node:22-slim
+
+WORKDIR /app
+
+# Install required system dependencies for pg-boss
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built bundle and dependencies
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/apps/api/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+
+# Expose port
+ENV PORT=3001
+EXPOSE 3001
+
+# Health check - ensures API is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+
+# Start the server
+CMD ["node", "dist/index.js"]

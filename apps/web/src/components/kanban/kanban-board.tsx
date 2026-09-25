@@ -1,0 +1,166 @@
+import * as React from "react";
+import { format } from "date-fns";
+import type { Task } from "@open-sunsama/types";
+import { useKanbanDates } from "@/hooks/useKanbanDates";
+import { useKanbanRangePrefetch } from "@/hooks/useKanbanRangePrefetch";
+import { useTasksDnd } from "@/lib/dnd/tasks-dnd-context";
+import { DayColumn } from "./day-column";
+import { TaskModal } from "./task-modal.lazy";
+import { AddTaskModal } from "./add-task-modal.lazy";
+import { KanbanBoardToolbar, useSortPreference } from "./kanban-board-toolbar";
+import { KanbanNavigationProvider } from "./kanban-navigation-context";
+
+interface KanbanBoardProps {
+  /**
+   * Children rendered inside the navigation provider scope.
+   * Useful for components that need access to kanban navigation context.
+   */
+  children?: React.ReactNode;
+  /**
+   * Callback when the first visible date changes (for syncing calendar panel)
+   */
+  onFirstVisibleDateChange?: (date: Date | null) => void;
+  /**
+   * Callback to navigate to a specific date
+   */
+  onDateSelect?: (date: Date) => void;
+}
+
+/**
+ * Linear-style infinite horizontal kanban board with day columns.
+ * DnD is handled by the parent TasksDndProvider context.
+ */
+export function KanbanBoard({ children, onFirstVisibleDateChange }: KanbanBoardProps) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+  const [isAddTaskOpen, setIsAddTaskOpen] = React.useState(false);
+  const [sortBy, onSortChange] = useSortPreference();
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const { isDragging } = useTasksDnd();
+
+  // Use the kanban dates hook for date management and navigation
+  // Pass isDragging to prevent infinite scroll during drag operations
+  const {
+    dates,
+    virtualizer,
+    navigatePrevious,
+    navigateNext,
+    navigateToToday,
+    handleScroll,
+    firstVisibleDate,
+  } = useKanbanDates({ containerRef, isDragging });
+
+  // Prefetch the entire visible date range in one request. Each DayColumn
+  // also calls useTasks({ scheduledDate }) — but because this hook seeds
+  // those per-day caches as soon as the range query resolves, the columns
+  // render immediately instead of waterfalling 30+ parallel requests.
+  useKanbanRangePrefetch({
+    centerDate: firstVisibleDate ?? new Date(),
+  });
+
+  // Notify parent of first visible date changes
+  React.useEffect(() => {
+    onFirstVisibleDateChange?.(firstVisibleDate);
+  }, [firstVisibleDate, onFirstVisibleDateChange]);
+
+  // Navigate to a specific date
+  const navigateToDate = React.useCallback((targetDate: Date) => {
+    const targetIndex = dates.findIndex((d) => 
+      d.dateString === targetDate.toISOString().split('T')[0]
+    );
+    if (targetIndex >= 0) {
+      virtualizer.scrollToIndex(targetIndex, {
+        align: "start",
+        behavior: "smooth",
+      });
+    }
+  }, [dates, virtualizer]);
+
+  // Memoize navigation context value
+  const navigationContextValue = React.useMemo(
+    () => ({
+      navigatePrevious,
+      navigateNext,
+      navigateToToday,
+      navigateToDate,
+      selectTask: setSelectedTask,
+    }),
+    [navigatePrevious, navigateNext, navigateToToday, navigateToDate]
+  );
+
+  return (
+    <KanbanNavigationProvider value={navigationContextValue}>
+      <div className="flex h-full flex-col bg-background">
+        {/* Toolbar */}
+        <KanbanBoardToolbar
+          onNavigatePrevious={navigatePrevious}
+          onNavigateNext={navigateNext}
+          onNavigateToday={navigateToToday}
+          onAddTask={() => setIsAddTaskOpen(true)}
+          sortBy={sortBy}
+          onSortChange={onSortChange}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+        />
+
+        {/* Kanban Board - DndContext is provided by TasksDndProvider */}
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory sm:snap-none"
+          onScroll={handleScroll}
+        >
+          <div
+            className="relative h-full"
+            style={{
+              width: `${virtualizer.getTotalSize()}px`,
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const dateInfo = dates[virtualItem.index];
+              if (!dateInfo) return null;
+
+              return (
+                <div
+                  key={dateInfo.dateString}
+                  className="absolute left-0 top-0 h-full snap-start snap-always"
+                  style={{
+                    width: `${virtualItem.size}px`,
+                    transform: `translateX(${virtualItem.start}px)`,
+                  }}
+                >
+                  <DayColumn
+                    date={dateInfo.date}
+                    dateString={dateInfo.dateString}
+                    onSelectTask={setSelectedTask}
+                    onDateClick={navigateToDate}
+                    sortBy={sortBy}
+                    searchQuery={searchQuery}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Task Detail Modal */}
+        <TaskModal
+          task={selectedTask}
+          open={selectedTask !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelectedTask(null);
+          }}
+        />
+
+        {/* Add Task Modal — scoped to the day currently in view */}
+        <AddTaskModal
+          open={isAddTaskOpen}
+          onOpenChange={setIsAddTaskOpen}
+          scheduledDate={format(firstVisibleDate ?? new Date(), "yyyy-MM-dd")}
+        />
+      </div>
+
+      {/* Render children inside the navigation provider scope */}
+      {children}
+    </KanbanNavigationProvider>
+  );
+}

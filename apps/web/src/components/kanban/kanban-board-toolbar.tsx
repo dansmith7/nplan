@@ -1,0 +1,184 @@
+import * as React from "react";
+import { ChevronLeft, ChevronRight, CalendarDays, ArrowUpDown, Check, Plus } from "lucide-react";
+import type { TaskSortBy } from "@open-sunsama/types";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  ShortcutHint,
+  ViewSearch,
+} from "@/components/ui";
+import { prefetchAddTaskModal } from "./add-task-modal.lazy";
+
+// Extended sort option that includes direction
+export type SortOption = "position" | "priority-desc" | "priority-asc" | "createdAt-desc" | "createdAt-asc";
+
+// Map to extract base sort field and direction
+export function parseSortOption(sort: SortOption): { field: TaskSortBy; direction: "asc" | "desc" } {
+  switch (sort) {
+    case "priority-desc":
+      return { field: "priority", direction: "desc" };
+    case "priority-asc":
+      return { field: "priority", direction: "asc" };
+    case "createdAt-desc":
+      return { field: "createdAt", direction: "desc" };
+    case "createdAt-asc":
+      return { field: "createdAt", direction: "asc" };
+    case "position":
+    default:
+      return { field: "position", direction: "asc" };
+  }
+}
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "position", label: "Manual" },
+  { value: "priority-desc", label: "Priority (P0 → P3)" },
+  { value: "priority-asc", label: "Priority (P3 → P0)" },
+  { value: "createdAt-desc", label: "Date (Newest first)" },
+  { value: "createdAt-asc", label: "Date (Oldest first)" },
+];
+
+// localStorage key for persisting sort preference
+const SORT_STORAGE_KEY = "open-sunsama-kanban-sort";
+
+interface KanbanBoardToolbarProps {
+  onNavigatePrevious: () => void;
+  onNavigateNext: () => void;
+  onNavigateToday: () => void;
+  onAddTask: () => void;
+  sortBy: SortOption;
+  onSortChange: (sort: SortOption) => void;
+  /** Substring filter applied to task titles/notes across the day columns. */
+  searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
+}
+
+const VALID_SORT_OPTIONS: SortOption[] = ["position", "priority-desc", "priority-asc", "createdAt-desc", "createdAt-asc"];
+
+/**
+ * Hook to manage sort preference with localStorage persistence
+ */
+export function useSortPreference(): [SortOption, (sort: SortOption) => void] {
+  const [sortBy, setSortBy] = React.useState<SortOption>(() => {
+    if (typeof window === "undefined") return "position";
+    const stored = localStorage.getItem(SORT_STORAGE_KEY);
+    if (stored && VALID_SORT_OPTIONS.includes(stored as SortOption)) {
+      return stored as SortOption;
+    }
+    return "position";
+  });
+
+  const handleSortChange = React.useCallback((sort: SortOption) => {
+    setSortBy(sort);
+    localStorage.setItem(SORT_STORAGE_KEY, sort);
+  }, []);
+
+  return [sortBy, handleSortChange];
+}
+
+export function KanbanBoardToolbar({
+  onNavigatePrevious,
+  onNavigateNext,
+  onNavigateToday,
+  onAddTask,
+  sortBy,
+  onSortChange,
+  searchQuery,
+  onSearchQueryChange,
+}: KanbanBoardToolbarProps) {
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Manual";
+
+  return (
+    <div className="flex h-14 flex-shrink-0 items-center justify-between border-b px-3 sm:px-4">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Navigation Arrows */}
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onNavigatePrevious}
+            title="Previous day"
+            className="h-8 w-8"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onNavigateToday}
+            className="group h-8 px-2.5"
+          >
+            <CalendarDays className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Today</span>
+            <ShortcutHint shortcutKey="goToToday" className="ml-2 hidden sm:flex" showOnHover />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onNavigateNext}
+            title="Next day"
+            className="h-8 w-8"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+      </div>
+
+      {/* Right-side actions */}
+      <div className="flex items-center gap-2">
+        {/* Filter the visible day columns down to matching cards */}
+        <ViewSearch
+          value={searchQuery}
+          onChange={onSearchQueryChange}
+          placeholder="Search tasks…"
+        />
+
+        {/* Primary Add Task action */}
+        <Button
+          onClick={onAddTask}
+          onMouseEnter={() => {
+            void prefetchAddTaskModal();
+          }}
+          onFocus={() => {
+            void prefetchAddTaskModal();
+          }}
+          size="sm"
+          className="gap-1.5 h-8 pl-2.5 pr-1.5"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Add task</span>
+          <kbd className="hidden sm:inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-primary-foreground/25 bg-primary-foreground/15 px-1 text-[9px] font-semibold leading-none">
+            A
+          </kbd>
+        </Button>
+
+        {/* Sort Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 px-2.5">
+              <ArrowUpDown className="h-4 w-4" />
+              <span className="hidden sm:inline">Sort:</span>
+              <span className="text-xs sm:text-sm">{currentSortLabel}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            {SORT_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => onSortChange(option.value)}
+                className="flex items-center justify-between"
+              >
+                <span>{option.label}</span>
+                {sortBy === option.value && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}

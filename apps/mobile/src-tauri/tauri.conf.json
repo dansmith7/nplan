@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Open Sunsama",
+  "version": "1.0.12",
+  "identifier": "app.opensunsama.mobile",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "http://192.168.4.159:3000",
+    "beforeBuildCommand": "cd ../web && bun run build",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "iOS": {
+      "developmentTeam": "DQVMM49PG9",
+      "minimumSystemVersion": "14.0"
+    },
+    "android": {
+      "minSdkVersion": 24
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "host": "opensunsama.com",
+          "pathPrefix": [
+            "/"
+          ]
+        },
+        {
+          "host": "*.opensunsama.com",
+          "pathPrefix": [
+            "/"
+          ]
+        }
+      ]
+    }
+  }
+}

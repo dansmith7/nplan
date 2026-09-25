@@ -540,14 +540,13 @@ function PlannerScreen({
         weekStart={calendarWeekStart}
         onOpen={() => onNavigate("calendar")}
       />
+      <TaskHorizon tasks={tasks} onOpen={onOpen} />
       {!isEveningReview ? (
         <div className="planner-dashboard-review">
           <MorningReviewScreen
-            tasks={tasks}
             inboxItems={inboxItems}
             pendingLessons={pendingLessons}
             onConfirmLesson={onConfirmLesson}
-            onOpen={onOpen}
             onNavigate={onNavigate}
           />
         </div>
@@ -592,6 +591,51 @@ function PlannerScreen({
         </div>
       ) : null}
     </>
+  );
+}
+
+function TaskHorizon({
+  tasks,
+  onOpen,
+}: {
+  tasks: Task[];
+  onOpen: (task: Task) => void;
+}) {
+  const active = tasks.filter((task) => !task.done);
+  const overdue = active.filter((task) => task.due === "overdue");
+  const today = active.filter((task) => task.due === "today");
+  const future = active.filter((task) => task.due === "future");
+
+  return (
+    <section className="task-horizon" aria-label="Задачи по срокам">
+      <header>
+        <span>ФОКУС ДНЯ</span>
+        <h2>Что требует внимания.</h2>
+      </header>
+      <div className="task-horizon-grid">
+        <ReviewTaskPanel
+          tone="overdue"
+          label="ПРОСРОЧЕНО"
+          title="Нужно разобрать"
+          tasks={overdue}
+          onOpen={onOpen}
+        />
+        <ReviewTaskPanel
+          tone="today"
+          label="СЕГОДНЯ"
+          title="До конца дня"
+          tasks={today}
+          onOpen={onOpen}
+        />
+        <ReviewTaskPanel
+          tone="future"
+          label="ПРЕДСТОИТ"
+          title="Дальше по плану"
+          tasks={future}
+          onOpen={onOpen}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -1102,25 +1146,19 @@ function InboxScreen({
 }
 
 function MorningReviewScreen({
-  tasks,
   inboxItems,
   pendingLessons,
   onConfirmLesson,
-  onOpen,
   onNavigate,
 }: {
-  tasks: Task[];
   inboxItems: PlannerInboxRow[];
   pendingLessons: PlannerLessonRow[];
   onConfirmLesson: (
     eventId: string,
     status: "held" | "cancelled"
   ) => Promise<unknown>;
-  onOpen: (task: Task) => void;
   onNavigate: (screen: Screen) => void;
 }) {
-  const overdue = tasks.filter((task) => task.due === "overdue" && !task.done);
-  const today = tasks.filter((task) => task.due === "today" && !task.done);
   const mailItems = inboxItems.filter((item) => item.source === "yandex_mail");
 
   return (
@@ -1132,22 +1170,8 @@ function MorningReviewScreen({
         </div>
         <p>Коротко свериться с днём, не превращая планнер в ещё один список.</p>
       </div>
-      <div className="morning-grid">
-        <ReviewTaskPanel
-          tone="overdue"
-          label="ПРОСРОЧЕНО"
-          title="Требуют решения"
-          tasks={overdue}
-          onOpen={onOpen}
-        />
-        <ReviewTaskPanel
-          tone="today"
-          label="СЕГОДНЯ"
-          title="До конца дня"
-          tasks={today}
-          onOpen={onOpen}
-        />
-        <section className="review-panel mail-panel">
+      <div className="morning-grid morning-mail-grid">
+        <section className="review-panel mail-panel morning-mail-panel">
           <span>ПОЧТА · {mailItems.length} СВЕЖИХ</span>
           <h2>Посмотреть потом</h2>
           <div className="review-mail-list">
@@ -1283,7 +1307,7 @@ function ReviewTaskPanel({
   tasks,
   onOpen,
 }: {
-  tone: "overdue" | "today";
+  tone: "overdue" | "today" | "future";
   label: string;
   title: string;
   tasks: Task[];
@@ -1300,7 +1324,10 @@ function ReviewTaskPanel({
           tasks.map((task) => (
             <button key={task.id} onClick={() => onOpen(task)}>
               <b>{task.title}</b>
-              <small>{task.category}</small>
+              <small>
+                {task.category}
+                {tone === "future" ? ` · ${task.date}` : ""}
+              </small>
               <ChevronRight size={14} />
             </button>
           ))
@@ -1309,7 +1336,9 @@ function ReviewTaskPanel({
             <Check size={18} />{" "}
             {tone === "overdue"
               ? "Ничего не просрочено."
-              : "На сегодня пока нет задач."}
+              : tone === "today"
+                ? "На сегодня пока нет задач."
+                : "Будущие задачи ещё не запланированы."}
           </div>
         )}
       </div>

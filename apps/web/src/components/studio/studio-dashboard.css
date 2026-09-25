@@ -994,6 +994,30 @@
 .planner-dashboard-review {
   margin-top: var(--space-5);
 }
+.task-horizon {
+  margin-top: var(--space-5);
+}
+.task-horizon > header > span {
+  color: #969289;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+.task-horizon > header h2 {
+  margin: 10px 0 0;
+  color: var(--paper);
+  font: 400 clamp(34px, 3.5vw, 48px) / 0.94 Georgia;
+  letter-spacing: -0.035em;
+}
+.task-horizon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.task-horizon-grid .review-panel {
+  min-height: 250px;
+}
 .planner-dashboard-review .daily-review {
   max-width: none;
 }
@@ -1062,6 +1086,12 @@
   grid-template-columns: 1fr 1fr 1.1fr;
   gap: var(--space-2);
   margin-top: var(--space-4);
+}
+.morning-mail-grid {
+  grid-template-columns: 1fr;
+}
+.morning-mail-panel {
+  min-height: auto;
 }
 .lesson-confirmations {
   margin-top: var(--space-2);
@@ -1147,8 +1177,14 @@
   border-color: transparent;
   color: #312816;
 }
+.review-panel.future {
+  background: var(--paper);
+  border-color: transparent;
+  color: var(--ink);
+}
 .review-panel.overdue > span,
-.review-panel.today > span {
+.review-panel.today > span,
+.review-panel.future > span {
   color: currentColor;
   opacity: 0.62;
 }
@@ -1643,6 +1679,7 @@
     margin-top: 16px;
   }
   .morning-grid,
+  .task-horizon-grid,
   .evening-layout {
     grid-template-columns: 1fr;
   }

@@ -12,9 +12,27 @@ html.studio-shell-active #root {
   max-width: 100%;
   min-height: 100%;
   margin: 0;
+  background: #0b0b0a;
+}
+
+/* Let the browser own the vertical page scroll. Applying overflow to html,
+   body and #root created competing scroll containers in the web build. */
+html.studio-shell-active:not(.tauri-window),
+body.studio-shell-active:not(.tauri-window) {
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+}
+
+html.studio-shell-active:not(.tauri-window) #root {
+  overflow: visible;
+}
+
+/* Keep the hard edge lock only inside the macOS webview. */
+html.studio-shell-active.tauri-window,
+body.studio-shell-active.tauri-window,
+html.studio-shell-active.tauri-window #root {
   overflow-x: hidden;
   overscroll-behavior: none;
-  background: #0b0b0a;
 }
 @font-face {
   font-family: TTCommons;

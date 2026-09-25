@@ -271,10 +271,11 @@ export function StudioDashboard() {
     root.classList.add("studio-shell-active");
     body.classList.add("studio-shell-active");
     root.classList.toggle("tauri-window", isTauri);
+    body.classList.toggle("tauri-window", isTauri);
     return () => {
       window.clearInterval(timer);
       root.classList.remove("studio-shell-active", "tauri-window");
-      body.classList.remove("studio-shell-active");
+      body.classList.remove("studio-shell-active", "tauri-window");
     };
   }, []);
   const currentDate = formatCurrentDate(

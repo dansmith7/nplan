@@ -105,6 +105,15 @@
   margin-left: auto;
   color: #8e8980;
 }
+.students-loading,
+.student-history-empty {
+  margin-top: var(--space-4);
+  color: #969289;
+  font: 400 15px/1.4 TTCommons;
+}
+.students-empty-state {
+  margin-top: var(--space-5);
+}
 @media (max-width: 760px) {
   .profile-hero {
     align-items: flex-start;

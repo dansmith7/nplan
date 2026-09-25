@@ -22,13 +22,14 @@ import {
   X,
 } from "lucide-react";
 import "./studio-dashboard.css";
+import { PlannerStudentsScreen } from "./planner-students-screen";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import {
   type PlannerTaskRow,
   usePlannerTasks,
 } from "@/hooks/use-planner-tasks";
 
-type Screen = "planner" | "calendar" | "inbox" | "students" | "student-profile";
+type Screen = "planner" | "calendar" | "inbox" | "students";
 type Category =
   | "Китай"
   | "Реестр"
@@ -224,7 +225,6 @@ export function StudioDashboard() {
   const [dismissed, setDismissed] = React.useState<Set<string>>(
     () => new Set()
   );
-  const [studentName, setStudentName] = React.useState("Маша Орлова");
   const completeTask = React.useCallback(
     (id: string) => {
       const task = tasks.find((item) => item.id === id);
@@ -336,20 +336,7 @@ export function StudioDashboard() {
             />
           ) : null}
           {screen === "students" ? (
-            <StudentsScreen
-              onLesson={setSelectedLesson}
-              onProfile={(name) => {
-                setStudentName(name);
-                setScreen("student-profile");
-              }}
-            />
-          ) : null}
-          {screen === "student-profile" ? (
-            <StudentProfileScreen
-              name={studentName}
-              onBack={() => setScreen("students")}
-              onLesson={setSelectedLesson}
-            />
+            <PlannerStudentsScreen />
           ) : null}
         </main>
       </div>
@@ -1093,194 +1080,6 @@ function EmptyState({
   );
 }
 
-function StudentsScreen({
-  onLesson,
-  onProfile,
-}: {
-  onLesson: (event: PlannerEvent) => void;
-  onProfile: (name: string) => void;
-}) {
-  const students = [
-    {
-      name: "Маша Орлова",
-      next: "Сегодня · 11:00",
-      lesson: events[0]!,
-      history: "12 занятий",
-      homework: "Подобрать 5 примеров для разбора",
-      lessons: [
-        {
-          date: "16 сентября",
-          topic: "Композиция в карточках",
-          homework: "Собрать мудборд из 12 референсов",
-        },
-        {
-          date: "9 сентября",
-          topic: "Типографика",
-          homework: "Переделать первый экран",
-        },
-      ],
-    },
-    {
-      name: "Лиза Белова",
-      next: "Пятница · 16:00",
-      lesson: events[3]!,
-      history: "8 занятий",
-      homework: "Закончить структуру лендинга",
-      lessons: [
-        {
-          date: "18 сентября",
-          topic: "Сценарий лендинга",
-          homework: "Описать блоки и собрать материалы",
-        },
-        {
-          date: "11 сентября",
-          topic: "Позиционирование",
-          homework: "Сформулировать три гипотезы",
-        },
-      ],
-    },
-  ];
-  return (
-    <section className="students-screen">
-      <div className="screen-heading">
-        <div>
-          <span>РАБОТА С УЧЕНИКАМИ</span>
-          <h1>Ученики</h1>
-        </div>
-        <button className="new-task-button">
-          <Plus size={16} /> Добавить ученика
-        </button>
-      </div>
-      {students.length ? (
-        <>
-          <div className="students-grid">
-            {students.map((student) => (
-              <article className="student-card" key={student.name}>
-                <div className="student-initial">{student.name[0]}</div>
-                <span>БЛИЖАЙШЕЕ ЗАНЯТИЕ</span>
-                <h2>{student.name}</h2>
-                <p>{student.next}</p>
-                <div>
-                  <small>{student.history}</small>
-                  <button onClick={() => onProfile(student.name)}>
-                    Профиль <ChevronRight size={14} />
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-          <section className="student-history">
-            <header>
-              <div>
-                <span>ИСТОРИЯ ЗАНЯТИЙ И ДОМАШНИЕ ЗАДАНИЯ</span>
-                <h2>Последние уроки</h2>
-              </div>
-              <p>ДЗ хранится у конкретного урока, а не отдельной задачей.</p>
-            </header>
-            <div className="history-columns">
-              {students.map((student) => (
-                <article key={student.name}>
-                  <div className="history-student">
-                    <b>{student.name}</b>
-                    <span>Ближайшее ДЗ: {student.homework}</span>
-                  </div>
-                  {student.lessons.map((lesson) => (
-                    <button
-                      key={lesson.date}
-                      onClick={() => onLesson(student.lesson)}
-                    >
-                      <span>{lesson.date}</span>
-                      <strong>{lesson.topic}</strong>
-                      <small>ДЗ · {lesson.homework}</small>
-                      <ChevronRight size={15} />
-                    </button>
-                  ))}
-                </article>
-              ))}
-            </div>
-          </section>
-          <div className="lesson-note">
-            <CircleCheck size={17} />
-            <p>
-              Прошедший урок остаётся здесь, пока не заполнены тема и домашнее
-              задание.
-            </p>
-          </div>
-        </>
-      ) : (
-        <EmptyState
-          title="Ученики появятся здесь."
-          text="Добавьте первого ученика, чтобы вести занятия, историю и домашние задания."
-          action="Добавить ученика"
-          onAction={() => undefined}
-        />
-      )}
-    </section>
-  );
-}
-function StudentProfileScreen({
-  name,
-  onBack,
-  onLesson,
-}: {
-  name: string;
-  onBack: () => void;
-  onLesson: (event: PlannerEvent) => void;
-}) {
-  const isMasha = name === "Маша Орлова";
-  const lesson = isMasha ? events[0]! : events[3]!;
-  const day = isMasha ? "Каждый вторник · 11:00" : "Каждую пятницу · 16:00";
-  const homework = isMasha
-    ? "Подобрать 5 примеров для разбора"
-    : "Закончить структуру лендинга";
-  return (
-    <section className="student-profile">
-      <button className="back-link" onClick={onBack}>
-        <ChevronLeft size={16} /> Все ученики
-      </button>
-      <div className="profile-hero">
-        <div className="student-initial">{name[0]}</div>
-        <div>
-          <span>КАРТОЧКА УЧЕНИКА</span>
-          <h1>{name}</h1>
-          <p>{day}</p>
-        </div>
-        <button className="new-task-button" onClick={() => onLesson(lesson)}>
-          Ближайший урок <ChevronRight size={15} />
-        </button>
-      </div>
-      <div className="profile-grid">
-        <section>
-          <span>РАСПИСАНИЕ</span>
-          <h2>{day}</h2>
-          <p>Напоминание за час до занятия</p>
-        </section>
-        <section>
-          <span>ДОМАШНЕЕ ЗАДАНИЕ</span>
-          <h2>{homework}</h2>
-          <p>Привязано к ближайшему уроку</p>
-        </section>
-      </div>
-      <section className="profile-history">
-        <header>
-          <span>ИСТОРИЯ</span>
-          <h2>Занятия</h2>
-        </header>
-        {[
-          "16 сентября · Композиция в карточках",
-          "9 сентября · Типографика",
-          "2 сентября · Первое занятие",
-        ].map((item) => (
-          <button key={item} onClick={() => onLesson(lesson)}>
-            <CircleCheck size={16} />
-            <span>{item}</span>
-            <ChevronRight size={15} />
-          </button>
-        ))}
-      </section>
-    </section>
-  );
-}
 const timeOptions = [
   "",
   "09:00",

@@ -18,6 +18,7 @@ import LoginPage from "./routes/login";
 import RegisterPage from "./routes/register";
 import AppLayout from "./routes/app";
 import { isLocalPreview } from "./lib/local-preview";
+import { getStoredSupabaseSession } from "./lib/supabase";
 
 // Create root route
 const rootRoute = createRootRoute({
@@ -271,7 +272,7 @@ const appRoute = createRoute({
   beforeLoad: () => {
     if (isLocalPreview()) return;
     const token = localStorage.getItem("open_sunsama_token");
-    if (!token) {
+    if (!token && !getStoredSupabaseSession()) {
       throw redirect({ to: "/login" });
     }
   },

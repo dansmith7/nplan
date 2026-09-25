@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { getStoredSupabaseSession, supabase } from "@/lib/supabase";
 
 type SupabaseSessionState = {
   isConfigured: boolean;
@@ -14,8 +14,10 @@ type SupabaseSessionState = {
  * return immediately unlocks the planner without a page refresh.
  */
 export function useSupabaseSession(): SupabaseSessionState {
-  const [session, setSession] = React.useState<Session | null>(null);
-  const [isLoading, setIsLoading] = React.useState(() => Boolean(supabase));
+  const [session, setSession] = React.useState<Session | null>(getStoredSupabaseSession);
+  const [isLoading, setIsLoading] = React.useState(
+    () => Boolean(supabase) && !Boolean(getStoredSupabaseSession())
+  );
 
   React.useEffect(() => {
     if (!supabase) {
@@ -26,7 +28,7 @@ export function useSupabaseSession(): SupabaseSessionState {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      setSession(data.session);
+      setSession(data.session ?? getStoredSupabaseSession());
       setIsLoading(false);
     });
 

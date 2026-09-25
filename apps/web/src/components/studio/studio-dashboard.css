@@ -15,6 +15,11 @@ html.studio-shell-active #root {
   background: #0b0b0a;
 }
 
+html.studio-shell-active {
+  scroll-behavior: smooth;
+  scroll-padding-top: 16px;
+}
+
 /* Let the browser own the vertical page scroll. Applying overflow to html,
    body and #root created competing scroll containers in the web build. */
 html.studio-shell-active:not(.tauri-window),
@@ -499,6 +504,9 @@ html.studio-shell-active.tauri-window #root {
   --line: #f4f1eb21;
   --today: #e8be61;
   --overdue: #f04d3b;
+  --motion-quick: 160ms;
+  --motion-enter: 240ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 .planner-shell {
   min-height: 100vh;
@@ -547,6 +555,13 @@ html.studio-shell-active.tauri-window #root {
   cursor: pointer;
   display: grid;
   place-items: center;
+  transition:
+    color var(--motion-quick) ease,
+    background-color var(--motion-quick) ease,
+    transform var(--motion-quick) var(--motion-ease-out);
+}
+.planner-sidebar button:active {
+  transform: scale(0.96);
 }
 .planner-sidebar nav .active {
   background: var(--paper);
@@ -702,6 +717,10 @@ html.studio-shell-active.tauri-window #root {
   max-width: 1600px;
   margin: auto;
   padding: var(--space-6) var(--space-6) 80px;
+}
+.planner-screen-stage {
+  width: 100%;
+  animation: planner-view-in var(--motion-enter) var(--motion-ease-out) both;
 }
 .planner-intro,
 .screen-heading,
@@ -882,6 +901,14 @@ html.studio-shell-active.tauri-window #root {
   border: 1px solid #f4f1eb12;
   border-radius: 7px;
   padding: 9px 8px;
+  transition:
+    transform var(--motion-quick) var(--motion-ease-out),
+    border-color var(--motion-quick) ease,
+    background-color var(--motion-quick) ease;
+}
+.task-card:hover {
+  transform: translateY(-1px);
+  border-color: #f4f1eb24;
 }
 .task-card.is-done {
   opacity: 0.48;
@@ -1024,6 +1051,10 @@ html.studio-shell-active.tauri-window #root {
   text-align: left;
   font: 600 11px/1.1 TTCommons;
   cursor: grab;
+  transition:
+    transform var(--motion-quick) var(--motion-ease-out),
+    box-shadow var(--motion-quick) ease,
+    opacity var(--motion-quick) ease;
 }
 .calendar-event small {
   display: block;
@@ -1520,6 +1551,13 @@ html.studio-shell-active.tauri-window #root {
   gap: var(--space-3);
   align-items: center;
   background: var(--panel);
+  transition:
+    transform var(--motion-quick) var(--motion-ease-out),
+    border-color var(--motion-quick) ease;
+}
+.inbox-card:hover {
+  transform: translateY(-1px);
+  border-color: #f4f1eb2b;
 }
 .source-mark {
   width: 35px;
@@ -1594,6 +1632,13 @@ html.studio-shell-active.tauri-window #root {
   background: var(--paper);
   color: var(--ink);
   position: relative;
+  transition:
+    transform var(--motion-quick) var(--motion-ease-out),
+    box-shadow var(--motion-quick) ease;
+}
+.student-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px #00000026;
 }
 .student-initial {
   height: 38px;
@@ -1662,6 +1707,7 @@ html.studio-shell-active.tauri-window #root {
   background: #000a;
   display: grid;
   place-items: center;
+  animation: planner-backdrop-in 180ms ease-out both;
 }
 .planner-modal {
   width: min(480px, 100%);
@@ -1670,6 +1716,39 @@ html.studio-shell-active.tauri-window #root {
   background: var(--paper);
   color: var(--ink);
   box-shadow: 0 20px 70px #0008;
+  transform-origin: 50% 46%;
+  animation: planner-modal-in 220ms var(--motion-ease-out) both;
+}
+
+@keyframes planner-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes planner-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes planner-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .modal-top {
   display: flex;
@@ -1860,6 +1939,23 @@ html.studio-shell-active.tauri-window #root {
 }
 .complete-modal:disabled {
   opacity: 0.35;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.studio-shell-active {
+    scroll-behavior: auto;
+  }
+  .planner-screen-stage,
+  .modal-backdrop,
+  .planner-modal {
+    animation: none;
+  }
+  .planner-sidebar button,
+  .task-card,
+  .calendar-event,
+  .inbox-card,
+  .student-card {
+    transition: none;
+  }
 }
 @media (max-width: 1160px) {
   .category-scroll {

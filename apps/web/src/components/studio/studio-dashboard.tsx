@@ -290,6 +290,15 @@ export function StudioDashboard() {
       ? displayName.split(" ")[0]
       : "Собранно.";
   const [screen, setScreen] = React.useState<Screen>("planner");
+  React.useEffect(() => {
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    window.scrollTo({
+      top: 0,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [screen]);
   const tasks = React.useMemo<Task[]>(() => {
     if (!plannerTasks.data) return [];
     return plannerTasks.data.flatMap((task) => {
@@ -474,59 +483,61 @@ export function StudioDashboard() {
           </div>
         </header>
         <main>
-          {screen === "planner" ? (
-            <PlannerScreen
-              tasks={tasks}
-              calendarEvents={calendarEvents}
-              calendarWeekStart={calendarWeekStart}
-              inboxItems={plannerInbox.data ?? []}
-              pendingLessons={pendingLessons.data ?? []}
-              onConfirmLesson={(eventId, status) =>
-                lessonConfirmation.setStatus.mutateAsync({ eventId, status })
-              }
-              onComplete={completeTask}
-              onOpen={setSelectedTask}
-              onAdd={(category) => {
-                setTaskCreationError(null);
-                setNewTaskCategory(category);
-              }}
-              onNavigate={setScreen}
-            />
-          ) : null}
-          {screen === "calendar" ? (
-            <CalendarScreen
-              events={calendarEvents}
-              weekStart={calendarWeekStart}
-              isLoading={plannerCalendar.isLoading}
-              onWeekChange={setCalendarWeekStart}
-              onCreate={(event) =>
-                plannerCalendar.create.mutateAsync(
-                  toCalendarEventInput(event, calendarWeekStart)
-                )
-              }
-              onUpdate={(event) =>
-                plannerCalendar.update.mutateAsync({
-                  id: event.id,
-                  ...toCalendarEventInput(event, calendarWeekStart),
-                })
-              }
-              onDelete={(id) => plannerCalendar.remove.mutateAsync(id)}
-              onLesson={setSelectedLesson}
-            />
-          ) : null}
-          {screen === "inbox" ? (
-            <InboxScreen
-              items={plannerInbox.data ?? []}
-              isLoading={plannerInbox.isLoading}
-              onDismiss={(id) => void plannerInbox.dismiss.mutateAsync(id)}
-              onCreate={(item) => {
-                setTaskCreationError(null);
-                setInboxTaskDraft({ id: item.id, title: item.title });
-                setNewTaskCategory("Личное");
-              }}
-            />
-          ) : null}
-          {screen === "students" ? <PlannerStudentsScreen /> : null}
+          <div className="planner-screen-stage" key={screen}>
+            {screen === "planner" ? (
+              <PlannerScreen
+                tasks={tasks}
+                calendarEvents={calendarEvents}
+                calendarWeekStart={calendarWeekStart}
+                inboxItems={plannerInbox.data ?? []}
+                pendingLessons={pendingLessons.data ?? []}
+                onConfirmLesson={(eventId, status) =>
+                  lessonConfirmation.setStatus.mutateAsync({ eventId, status })
+                }
+                onComplete={completeTask}
+                onOpen={setSelectedTask}
+                onAdd={(category) => {
+                  setTaskCreationError(null);
+                  setNewTaskCategory(category);
+                }}
+                onNavigate={setScreen}
+              />
+            ) : null}
+            {screen === "calendar" ? (
+              <CalendarScreen
+                events={calendarEvents}
+                weekStart={calendarWeekStart}
+                isLoading={plannerCalendar.isLoading}
+                onWeekChange={setCalendarWeekStart}
+                onCreate={(event) =>
+                  plannerCalendar.create.mutateAsync(
+                    toCalendarEventInput(event, calendarWeekStart)
+                  )
+                }
+                onUpdate={(event) =>
+                  plannerCalendar.update.mutateAsync({
+                    id: event.id,
+                    ...toCalendarEventInput(event, calendarWeekStart),
+                  })
+                }
+                onDelete={(id) => plannerCalendar.remove.mutateAsync(id)}
+                onLesson={setSelectedLesson}
+              />
+            ) : null}
+            {screen === "inbox" ? (
+              <InboxScreen
+                items={plannerInbox.data ?? []}
+                isLoading={plannerInbox.isLoading}
+                onDismiss={(id) => void plannerInbox.dismiss.mutateAsync(id)}
+                onCreate={(item) => {
+                  setTaskCreationError(null);
+                  setInboxTaskDraft({ id: item.id, title: item.title });
+                  setNewTaskCategory("Личное");
+                }}
+              />
+            ) : null}
+            {screen === "students" ? <PlannerStudentsScreen /> : null}
+          </div>
         </main>
       </div>
       {selectedTask ? (

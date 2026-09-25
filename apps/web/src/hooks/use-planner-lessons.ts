@@ -108,7 +108,40 @@ export function useLessonConfirmationActions() {
     onSuccess: invalidate,
   });
 
-  return { setStatus };
+  const saveNotes = useMutation({
+    mutationFn: async ({
+      eventId,
+      topic,
+      homework,
+    }: {
+      eventId: string;
+      topic: string;
+      homework: string;
+    }) => {
+      const { error } = await requireSupabase()
+        .from("lesson_notes")
+        .update({
+          topic: topic.trim() || null,
+          homework: homework.trim() || null,
+        })
+        .eq("event_id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  const remove = useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await requireSupabase()
+        .from("calendar_events")
+        .delete()
+        .eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  return { setStatus, saveNotes, remove };
 }
 
 export function usePlannerLessons(range: LessonRange) {

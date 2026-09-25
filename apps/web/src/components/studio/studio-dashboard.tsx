@@ -106,6 +106,11 @@ type PlannerEvent = {
   taskId: string | null;
   description: string | null;
   recurrence: "none" | "weekly" | "monthly";
+  lessonNotes: {
+    topic: string | null;
+    homework: string | null;
+    status: "scheduled" | "held" | "cancelled";
+  } | null;
   isNew?: boolean;
 };
 
@@ -180,6 +185,7 @@ function toPlannerEvent(
     taskId: event.task_id,
     description: event.description,
     recurrence: event.recurrence,
+    lessonNotes: event.notes,
   };
 }
 
@@ -458,6 +464,18 @@ export function StudioDashboard() {
         <LessonModal
           lesson={selectedLesson}
           onClose={() => setSelectedLesson(null)}
+          onSave={async (topic, homework) => {
+            await lessonConfirmation.saveNotes.mutateAsync({
+              eventId: selectedLesson.id,
+              topic,
+              homework,
+            });
+            setSelectedLesson(null);
+          }}
+          onDelete={async () => {
+            await lessonConfirmation.remove.mutateAsync(selectedLesson.id);
+            setSelectedLesson(null);
+          }}
         />
       ) : null}
     </div>
@@ -767,6 +785,7 @@ function CalendarScreen({
     taskId: null,
     description: null,
     recurrence: "none",
+    lessonNotes: null,
     isNew: true,
   });
   return (
@@ -1604,10 +1623,45 @@ function CreateTaskModal({
 function LessonModal({
   lesson,
   onClose,
+  onSave,
+  onDelete,
 }: {
   lesson: PlannerEvent;
   onClose: () => void;
+  onSave: (topic: string, homework: string) => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
+  const [topic, setTopic] = React.useState(lesson.lessonNotes?.topic ?? "");
+  const [homework, setHomework] = React.useState(
+    lesson.lessonNotes?.homework ?? ""
+  );
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const save = async () => {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await onSave(topic, homework);
+    } catch {
+      setError("Не удалось сохранить урок. Повторите ещё раз.");
+      setIsSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm("Удалить этот урок из календаря?")) return;
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await onDelete();
+    } catch {
+      setError("Не удалось удалить урок. Повторите ещё раз.");
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Modal onClose={onClose}>
       <div className="modal-top">
@@ -1619,18 +1673,35 @@ function LessonModal({
       <h2>{lesson.title.replace("Занятие · ", "")}</h2>
       <label>
         Тема урока
-        <input placeholder="Что проходили?" />
+        <input
+          placeholder="Что проходили?"
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+        />
       </label>
       <label>
         Домашнее задание
-        <textarea placeholder="Свободный текст для ученика" />
+        <textarea
+          placeholder="Свободный текст для ученика"
+          value={homework}
+          onChange={(event) => setHomework(event.target.value)}
+        />
       </label>
+      {error ? <p className="modal-error">{error}</p> : null}
       <div className="modal-footer">
-        <button className="delete-button">
-          <Trash2 size={15} /> Удалить
+        <button
+          className="delete-button"
+          disabled={isSaving || isDeleting}
+          onClick={() => void remove()}
+        >
+          <Trash2 size={15} /> {isDeleting ? "Удаляю…" : "Удалить"}
         </button>
-        <button className="complete-modal" onClick={onClose}>
-          <Check size={16} /> Сохранить
+        <button
+          className="complete-modal"
+          disabled={isSaving || isDeleting}
+          onClick={() => void save()}
+        >
+          <Check size={16} /> {isSaving ? "Сохраняю…" : "Сохранить"}
         </button>
       </div>
     </Modal>

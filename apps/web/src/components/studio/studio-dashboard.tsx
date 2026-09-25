@@ -64,64 +64,20 @@ const categoryIcons: Record<Category, React.ReactNode> = {
   Финансы: <WalletCards size={16} strokeWidth={1.7} />,
   Ученики: <GraduationCap size={17} strokeWidth={1.7} />,
 };
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Проверить документы по поставке",
-    category: "Китай",
-    due: "overdue",
-    date: "Вчера",
-  },
-  {
-    id: "2",
-    title: "Сверить статус заказа",
-    category: "Китай",
-    due: "today",
-    date: "Сегодня",
-  },
-  {
-    id: "3",
-    title: "Подготовить заявление",
-    category: "Реестр",
-    due: "today",
-    date: "Сегодня",
-  },
-  {
-    id: "4",
-    title: "Уточнить срок регистрации",
-    category: "Реестр",
-    due: "future",
-    date: "29 сентября",
-  },
-  {
-    id: "5",
-    title: "Записаться к стоматологу",
-    category: "Личное",
-    due: "today",
-    date: "Сегодня",
-  },
-  {
-    id: "6",
-    title: "Согласовать тираж",
-    category: "Производство",
-    due: "overdue",
-    date: "22 сентября",
-  },
-  {
-    id: "7",
-    title: "Проверить смету",
-    category: "Финансы",
-    due: "future",
-    date: "27 сентября",
-  },
-  {
-    id: "8",
-    title: "Подготовить материалы к уроку",
-    category: "Ученики",
-    due: "today",
-    date: "Сегодня",
-  },
-];
+
+function formatCurrentDate(date: Date, timezone?: string) {
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: timezone,
+  };
+  const parts = new Intl.DateTimeFormat("ru-RU", options).formatToParts(date);
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  return { weekday, date: `${day} ${month}` };
+}
 type PlannerEvent = {
   id: string;
   day: number;
@@ -188,6 +144,10 @@ const inboxItems = [
 export function StudioDashboard() {
   const plannerBootstrap = usePlannerBootstrap();
   const plannerTasks = usePlannerTasks();
+  const currentDate = formatCurrentDate(
+    new Date(),
+    plannerBootstrap.data?.profile.timezone
+  );
   const displayName = plannerBootstrap.data?.profile.display_name;
   const headerName = displayName && !displayName.includes("@")
     ? displayName.split(" ")[0]
@@ -303,8 +263,8 @@ export function StudioDashboard() {
             <strong>{headerName}</strong>
           </div>
           <div className="header-date">
-            <span>Среда</span>
-            <b>23 сентября</b>
+            <span>{currentDate.weekday}</span>
+            <b>{currentDate.date}</b>
             <button aria-label="Меню">
               <MoreHorizontal size={19} />
             </button>
@@ -386,12 +346,19 @@ function PlannerScreen({
   const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();
   const isEveningReview = minutes >= 17 * 60 + 50;
   const hasActiveTasks = tasks.some((task) => !task.done);
+  const todayLabel = new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  })
+    .format(currentTime)
+    .toLocaleUpperCase("ru-RU");
 
   return (
     <>
       <section className="planner-intro">
         <div>
-          <p>СРЕДА, 23 СЕНТЯБРЯ</p>
+          <p>{todayLabel}</p>
           <h1>Сегодня.</h1>
         </div>
         <button className="new-task-button" onClick={() => onAdd("Личное")}>

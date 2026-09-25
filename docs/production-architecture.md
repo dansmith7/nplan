@@ -7,9 +7,9 @@
 | Authentication | Supabase Auth | Supabase Auth |
 | Profile and categories | Supabase | `profiles`, `categories` |
 | Tasks | Supabase | `tasks`, `task_attachments` |
-| Students | Hardcoded in `studio-dashboard.tsx` | `students`, `student_schedules` |
+| Students | Supabase CRUD and lesson history | `students`, `student_schedules` |
 | Calendar | Hardcoded week and in-memory drag state | `calendar_events` |
-| Lesson topic/homework | Uncontrolled form, not saved | `lesson_notes` |
+| Lesson topic/homework | Saved from the student profile | `lesson_notes` |
 | Lesson attendance | Not implemented | `lesson_notes.status` |
 | Telegram/mail inbox | Hardcoded cards and local dismissal | `inbox_items` |
 | Morning/evening review | Real clock, hardcoded date/mail count | Database queries using profile timezone |
@@ -40,10 +40,10 @@ This separation is intentional:
 ## Remaining hardcoded UI to remove
 
 - fixed September dates and week labels;
-- fixed calendar events and student cards;
+- fixed calendar events on the home and calendar screens;
 - fixed inbox messages and the `5 fresh` counter;
 - local `dismissed` inbox state;
-- no-op add-student action;
+- student schedule editing and recurrence expansion UI;
 - task attachment controls that are still presentation-only;
 - fixed email and Telegram summaries;
 - calendar navigation arrows that do not change the queried range.
@@ -55,4 +55,3 @@ This separation is intentional:
 - Supabase Edge Functions / scheduled jobs: Telegram webhook, Yandex Mail sync,
   recurrence expansion and morning/evening review preparation.
 - Tauri: autostart and native macOS notifications; no service-role secrets.
-

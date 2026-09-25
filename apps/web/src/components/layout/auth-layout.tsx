@@ -23,12 +23,13 @@ export function AuthLayout({ children, className }: AuthLayoutProps) {
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
         {/* Logo */}
         <Link to="/" className="mb-8 flex items-center gap-2">
-          <img
-            src="/open-sunsama-logo.png"
-            alt="Open Sunsama"
-            className="h-8 w-8 rounded-xl object-cover"
-          />
-          <span className="text-[15px] font-semibold">Open Sunsama</span>
+          <span
+            aria-hidden="true"
+            className="grid h-8 w-8 place-items-center rounded-lg bg-[#c65f43] font-serif text-base text-white"
+          >
+            N
+          </span>
+          <span className="text-[15px] font-semibold">NPlan</span>
         </Link>
 
         {/* Card */}
@@ -47,11 +48,11 @@ export function AuthLayout({ children, className }: AuthLayoutProps) {
             to="/privacy"
             className="hover:text-foreground transition-colors"
           >
-            Privacy
+            Конфиденциальность
           </Link>
           <span className="text-border">•</span>
           <Link to="/terms" className="hover:text-foreground transition-colors">
-            Terms
+            Условия
           </Link>
         </div>
       </div>

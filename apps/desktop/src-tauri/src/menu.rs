@@ -5,27 +5,21 @@ use tauri::{
 
 pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // App menu (macOS only)
-    let about = PredefinedMenuItem::about(app, Some("About Open Sunsama"), None)?;
+    let about = PredefinedMenuItem::about(app, Some("О NPlan"), None)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let settings = MenuItemBuilder::with_id("settings", "Settings...")
-        .accelerator("CmdOrCtrl+,")
-        .build(app)?;
-    let separator2 = PredefinedMenuItem::separator(app)?;
-    let hide = PredefinedMenuItem::hide(app, Some("Hide Open Sunsama"))?;
+    let hide = PredefinedMenuItem::hide(app, Some("Скрыть NPlan"))?;
     let hide_others = PredefinedMenuItem::hide_others(app, Some("Hide Others"))?;
     let show_all = PredefinedMenuItem::show_all(app, Some("Show All"))?;
     let separator3 = PredefinedMenuItem::separator(app)?;
-    let quit = PredefinedMenuItem::quit(app, Some("Quit Open Sunsama"))?;
+    let quit = PredefinedMenuItem::quit(app, Some("Выйти из NPlan"))?;
 
     let app_menu = Submenu::with_items(
         app,
-        "Open Sunsama",
+        "NPlan",
         true,
         &[
             &about,
             &separator,
-            &settings,
-            &separator2,
             &hide,
             &hide_others,
             &show_all,
@@ -35,13 +29,9 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // File menu
-    let new_task = MenuItemBuilder::with_id("new_task", "New Task")
-        .accelerator("CmdOrCtrl+N")
-        .build(app)?;
-    let file_sep = PredefinedMenuItem::separator(app)?;
     let close_window = PredefinedMenuItem::close_window(app, Some("Close Window"))?;
 
-    let file_menu = Submenu::with_items(app, "File", true, &[&new_task, &file_sep, &close_window])?;
+    let file_menu = Submenu::with_items(app, "File", true, &[&close_window])?;
 
     // Edit menu
     let undo = PredefinedMenuItem::undo(app, Some("Undo"))?;
@@ -57,16 +47,20 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         "Edit",
         true,
         &[
-            &undo, &redo, &edit_sep, &cut, &copy, &paste, &edit_sep, &select_all,
+            &undo,
+            &redo,
+            &edit_sep,
+            &cut,
+            &copy,
+            &paste,
+            &edit_sep,
+            &select_all,
         ],
     )?;
 
     // View menu
     let today_view = MenuItemBuilder::with_id("today_view", "Today")
         .accelerator("CmdOrCtrl+1")
-        .build(app)?;
-    let calendar_view = MenuItemBuilder::with_id("calendar_view", "Calendar")
-        .accelerator("CmdOrCtrl+2")
         .build(app)?;
     let view_sep = PredefinedMenuItem::separator(app)?;
     let reload = MenuItemBuilder::with_id("reload", "Reload")
@@ -79,21 +73,20 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         app,
         "View",
         true,
-        &[
-            &today_view,
-            &calendar_view,
-            &view_sep,
-            &reload,
-            &view_sep2,
-            &fullscreen,
-        ],
+        &[&today_view, &view_sep, &reload, &view_sep2, &fullscreen],
     )?;
 
     // Window menu
     let minimize = PredefinedMenuItem::minimize(app, Some("Minimize"))?;
     let zoom = PredefinedMenuItem::maximize(app, Some("Zoom"))?;
     let window_sep = PredefinedMenuItem::separator(app)?;
-    let bring_all_to_front = MenuItem::with_id(app, "bring_all_to_front", "Bring All to Front", true, None::<&str>)?;
+    let bring_all_to_front = MenuItem::with_id(
+        app,
+        "bring_all_to_front",
+        "Bring All to Front",
+        true,
+        None::<&str>,
+    )?;
 
     let window_menu = Submenu::with_items(
         app,
@@ -107,8 +100,12 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let help_sep = PredefinedMenuItem::separator(app)?;
     let report_issue = MenuItemBuilder::with_id("report_issue", "Report Issue").build(app)?;
 
-    let help_menu =
-        Submenu::with_items(app, "Help", true, &[&documentation, &help_sep, &report_issue])?;
+    let help_menu = Submenu::with_items(
+        app,
+        "Help",
+        true,
+        &[&documentation, &help_sep, &report_issue],
+    )?;
 
     // Build the menu
     let menu = Menu::with_items(
@@ -129,24 +126,9 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.on_menu_event(|app, event| {
         let id = event.id.as_ref();
         match id {
-            "settings" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("navigate", "/app/settings");
-                }
-            }
-            "new_task" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("quick-add-task", ());
-                }
-            }
             "today_view" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.emit("navigate", "/app");
-                }
-            }
-            "calendar_view" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("navigate", "/app/calendar");
                 }
             }
             "reload" => {
@@ -156,12 +138,12 @@ pub fn create_menu(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             }
             "documentation" => {
                 let _ = tauri::async_runtime::spawn(async {
-                    let _ = open::that("https://github.com/your-org/open-sunsama");
+                    let _ = open::that("https://github.com/dansmith7/nplan");
                 });
             }
             "report_issue" => {
                 let _ = tauri::async_runtime::spawn(async {
-                    let _ = open::that("https://github.com/your-org/open-sunsama/issues");
+                    let _ = open::that("https://github.com/dansmith7/nplan/issues");
                 });
             }
             _ => {}

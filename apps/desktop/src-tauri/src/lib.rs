@@ -2,7 +2,7 @@ mod commands;
 mod menu;
 mod tray;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -18,8 +18,6 @@ pub fn run() {
             Some(vec!["--minimized"]),
         ))
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_http::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -58,21 +56,13 @@ pub fn run() {
 
 fn register_global_shortcuts(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let shortcut_toggle = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyO);
-    let shortcut_new_task = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT);
-    let shortcut_focus = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyF);
-
     app.global_shortcut().register(shortcut_toggle)?;
-    app.global_shortcut().register(shortcut_new_task)?;
-    app.global_shortcut().register(shortcut_focus)?;
 
     Ok(())
 }
 
 fn handle_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut) {
     let toggle_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyO);
-    let new_task_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyT);
-    let focus_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyF);
-
     if shortcut == &toggle_shortcut {
         // Toggle window visibility
         if let Some(window) = app.get_webview_window("main") {
@@ -82,18 +72,6 @@ fn handle_global_shortcut(app: &tauri::AppHandle, shortcut: &Shortcut) {
                 let _ = window.show();
                 let _ = window.set_focus();
             }
-        }
-    } else if shortcut == &new_task_shortcut {
-        // Show window and emit event to create new task
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.show();
-            let _ = window.set_focus();
-            let _ = window.emit("quick-add-task", ());
-        }
-    } else if shortcut == &focus_shortcut {
-        // Emit focus mode event
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.emit("start-focus-mode", ());
         }
     }
 }

@@ -8,7 +8,7 @@ import { Button, Input, Label } from "@/components/ui";
 import { toast } from "@/hooks/use-toast";
 import { useSEO, SEO_CONFIGS } from "@/hooks/useSEO";
 import { getSafeRedirect } from "@/lib/auth-redirect";
-import { supabase } from "@/lib/supabase";
+import { isTauriRuntime, supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/use-supabase-session";
 
 interface LoginForm {
@@ -43,6 +43,20 @@ function SupabaseLoginPage() {
     setError(null);
 
     try {
+      if (isTauriRuntime) {
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+        if (signInError || !data.session) {
+          setError("Не удалось войти. Проверьте почту и пароль.");
+          return;
+        }
+        window.location.replace(redirect || "/app");
+        return;
+      }
+
       const loginResponse = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -39,17 +39,18 @@ const indexRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/landing")),
   beforeLoad: () => {
     const token = localStorage.getItem("open_sunsama_token");
+    const hasSession = Boolean(token || getStoredSupabaseSession());
 
     // On desktop/mobile app (Tauri), skip landing page entirely
     // Both desktop and mobile Tauri apps have __TAURI_INTERNALS__
     const isTauriApp =
       typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
     if (isTauriApp) {
-      throw redirect({ to: token ? "/app" : "/login" });
+      throw redirect({ to: hasSession ? "/app" : "/login" });
     }
 
     // On web browser, redirect authenticated users to app
-    if (token) {
+    if (hasSession) {
       throw redirect({ to: "/app" });
     }
   },
@@ -232,7 +233,9 @@ const forRemoteWorkersRoute = createRoute({
 const openSourceTaskManagerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/open-source-task-manager",
-  component: lazyRouteComponent(() => import("./routes/open-source-task-manager")),
+  component: lazyRouteComponent(
+    () => import("./routes/open-source-task-manager")
+  ),
 });
 
 // Old SEO URL, still linked from blog posts; the time-blocking feature page replaces it.
@@ -324,9 +327,7 @@ const appTasksListRoute = createRoute({
   component: lazyRouteComponent(() => import("./routes/app/tasks")),
   // `?backlog=1` opens the mobile backlog sheet on arrival (used by the
   // mobile "More → Backlog" entry).
-  validateSearch: (
-    search: Record<string, unknown>
-  ): { backlog?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { backlog?: string } => ({
     // Coerce regardless of type — TanStack parses `?backlog=1` as the number 1.
     backlog: search.backlog != null ? String(search.backlog) : undefined,
   }),

@@ -37,7 +37,8 @@ export function AppUpdateBanner() {
   // Computed once via useState so HMR re-renders don't toggle it.
   const [isDesktopApp] = React.useState(() => isDesktop());
 
-  if (!isDesktopApp) return null;
+  const updatesEnabled = import.meta.env.VITE_ENABLE_DESKTOP_UPDATES === "true";
+  if (!isDesktopApp || !updatesEnabled) return null;
 
   return (
     <React.Suspense fallback={null}>

@@ -2,6 +2,13 @@ import { createClient, type Session } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const isTauriRuntime =
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+const tauriFetch: typeof globalThis.fetch = async (input, init) => {
+  const { fetch } = await import("@tauri-apps/plugin-http");
+  return fetch(input, init);
+};
 
 /**
  * Browser client. The anon key is intentionally public; data access is
@@ -10,6 +17,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          fetch: isTauriRuntime ? tauriFetch : globalThis.fetch,
+        },
         auth: {
           persistSession: true,
           autoRefreshToken: true,
@@ -33,7 +43,9 @@ export function getStoredSupabaseSession(): Session | null {
   if (!storageKey) return null;
 
   try {
-    const value = JSON.parse(localStorage.getItem(storageKey) ?? "null") as Session | null;
+    const value = JSON.parse(
+      localStorage.getItem(storageKey) ?? "null"
+    ) as Session | null;
     if (!value?.access_token || !value?.refresh_token) return null;
     if (value.expires_at && value.expires_at * 1000 <= Date.now()) return null;
     return value;

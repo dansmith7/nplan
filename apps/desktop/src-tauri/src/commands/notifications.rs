@@ -16,9 +16,9 @@ pub fn show_notification(
     options: NotificationOptions,
 ) -> Result<(), String> {
     let mut notification = app.notification().builder();
-    
+
     notification = notification.title(&options.title);
-    
+
     if let Some(body) = &options.body {
         notification = notification.body(body);
     }

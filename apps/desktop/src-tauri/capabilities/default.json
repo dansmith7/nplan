@@ -36,14 +36,9 @@
     "store:allow-set",
     "store:allow-save",
     "store:allow-load",
-    "updater:default",
-    "process:allow-restart",
     {
       "identifier": "http:default",
-      "allow": [
-        { "url": "https://api.opensunsama.com/**" },
-        { "url": "wss://api.opensunsama.com/**" }
-      ]
+      "allow": [{ "url": "https://wfkrnblgnlzhakcmvktn.supabase.co/**" }]
     }
   ]
 }

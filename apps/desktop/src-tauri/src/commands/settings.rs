@@ -61,8 +61,8 @@ pub fn set_settings(app: tauri::AppHandle, settings: AppSettings) -> Result<(), 
         .store("settings.json")
         .map_err(|e| format!("Failed to open store: {}", e))?;
 
-    let value: Value =
-        serde_json::to_value(&settings).map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    let value: Value = serde_json::to_value(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
     store.set("settings", value);
     store

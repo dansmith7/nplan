@@ -1,22 +1,22 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Open Sunsama",
+  "productName": "NPlan",
   "version": "1.0.12",
-  "identifier": "app.opensunsama.desktop",
+  "identifier": "ru.geckotouch.nplan",
   "build": {
-    "beforeDevCommand": "cd ../web && bun run dev",
+    "beforeDevCommand": "cd ../web && npx vite",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cd ../web && bun run build && cd ../desktop && node scripts/prepare-frontend.mjs",
+    "beforeBuildCommand": "cd ../web && npx tsc && npx vite build && cd ../desktop && node scripts/prepare-frontend.mjs",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Open Sunsama",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
+        "title": "NPlan",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 700,
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
@@ -35,7 +35,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -57,14 +57,6 @@
       "appimage": {
         "bundleMediaFramework": false
       }
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1M0VGQzIxNDQ0MDA0RDMKUldUVEJFQkVJZncrZGIySHVwNnp4dDh1MEI5eGtONlZ6NkQyZGNwZE1Ja1V5NllhSEtyV0JDYWsK",
-      "endpoints": [
-        "https://api.opensunsama.com/releases/update/{{target}}/{{current_version}}"
-      ]
     }
   }
 }

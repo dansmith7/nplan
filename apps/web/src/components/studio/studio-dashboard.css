@@ -1695,6 +1695,14 @@ html.studio-shell-active #root {
   display: flex;
   gap: 6px;
 }
+.attachment-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.modal-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
 .modal-footer {
   margin-top: 24px;
   display: flex;

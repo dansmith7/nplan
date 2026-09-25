@@ -10,6 +10,7 @@ export type PlannerTaskRow = {
   status: "in_progress" | "completed";
   due_date: string | null;
   due_time: string | null;
+  completed_at: string | null;
   recurrence: "none" | "weekly" | "monthly";
   category: { id: string; name: string } | null;
 };
@@ -29,7 +30,7 @@ async function getPlannerTasks(): Promise<PlannerTaskRow[]> {
   const { data, error } = await requireSupabase()
     .from("tasks")
     .select(
-      "id, title, description, status, due_date, due_time, recurrence, category:categories(id, name)"
+      "id, title, description, status, due_date, due_time, completed_at, recurrence, category:categories(id, name)"
     )
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
@@ -51,20 +52,28 @@ export function usePlannerTasks() {
   });
 
   const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: key }),
-    [key, queryClient]
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "calendar-events", session?.user.id],
+        }),
+      ]),
+    [key, queryClient, session?.user.id]
   );
 
   const create = useMutation({
     mutationFn: async (input: TaskInput) => {
-      const { error } = await requireSupabase().from("tasks").insert({
-        title: input.title,
-        description: input.description ?? null,
-        category_id: input.categoryId,
-        due_date: input.dueDate || null,
-        due_time: input.dueTime || null,
-        recurrence: input.recurrence ?? "none",
-      });
+      const { error } = await requireSupabase()
+        .from("tasks")
+        .insert({
+          title: input.title,
+          description: input.description ?? null,
+          category_id: input.categoryId,
+          due_date: input.dueDate || null,
+          due_time: input.dueTime || null,
+          recurrence: input.recurrence ?? "none",
+        });
       if (error) throw error;
     },
     onSuccess: invalidate,
@@ -89,7 +98,13 @@ export function usePlannerTasks() {
   });
 
   const setCompleted = useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+    mutationFn: async ({
+      id,
+      completed,
+    }: {
+      id: string;
+      completed: boolean;
+    }) => {
       const { error } = await requireSupabase()
         .from("tasks")
         .update({
@@ -102,5 +117,16 @@ export function usePlannerTasks() {
     onSuccess: invalidate,
   });
 
-  return { ...tasksQuery, create, update, setCompleted };
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await requireSupabase()
+        .from("tasks")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  return { ...tasksQuery, create, update, setCompleted, remove };
 }

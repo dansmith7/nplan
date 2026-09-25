@@ -59,11 +59,17 @@ type Task = {
   category: Category;
   due: "overdue" | "today" | "future";
   date: string;
+  dueDate: string | null;
   time?: string;
   repeat?: "Нет" | "Каждую неделю" | "Каждый месяц";
   done?: boolean;
   note?: string;
+  completedAt?: string;
 };
+type TaskDraft = Pick<
+  Task,
+  "title" | "category" | "dueDate" | "time" | "repeat"
+>;
 const categories: Category[] = [
   "Китай",
   "Реестр",
@@ -284,10 +290,12 @@ export function StudioDashboard() {
           category,
           due: getDueTone(task.due_date),
           date: formatDueDate(task.due_date),
+          dueDate: task.due_date,
           time: task.due_time ?? undefined,
           repeat: recurrenceToLabel(task.recurrence),
           done: task.status === "completed",
           note: task.description ?? undefined,
+          completedAt: task.completed_at ?? undefined,
         },
       ];
     });
@@ -313,23 +321,26 @@ export function StudioDashboard() {
   const [selectedLesson, setSelectedLesson] =
     React.useState<PlannerEvent | null>(null);
   const completeTask = React.useCallback(
-    (id: string) => {
+    async (id: string) => {
       const task = tasks.find((item) => item.id === id);
       if (!task) return;
-      void plannerTasks.setCompleted.mutateAsync({ id, completed: !task.done });
+      await plannerTasks.setCompleted.mutateAsync({
+        id,
+        completed: !task.done,
+      });
     },
     [plannerTasks.setCompleted, tasks]
   );
   const updateTask = React.useCallback(
-    (nextTask: Task) => {
+    async (nextTask: Task) => {
       const categoryId = categoryIds.get(nextTask.category);
-      if (!categoryId) return;
-      void plannerTasks.update.mutateAsync({
+      if (!categoryId) throw new Error("Категория задачи не найдена");
+      await plannerTasks.update.mutateAsync({
         id: nextTask.id,
         title: nextTask.title,
         description: nextTask.note,
         categoryId,
-        dueDate: toDateInputValue(nextTask.date) || null,
+        dueDate: nextTask.dueDate,
         dueTime: nextTask.time ?? null,
         recurrence: labelToRecurrence(nextTask.repeat),
       });
@@ -337,14 +348,14 @@ export function StudioDashboard() {
     [categoryIds, plannerTasks.update]
   );
   const addTask = React.useCallback(
-    (draft: Pick<Task, "title" | "category" | "date" | "time" | "repeat">) => {
+    (draft: TaskDraft) => {
       const categoryId = categoryIds.get(draft.category);
       if (!categoryId) return;
       setTaskCreationError(null);
       const input = {
         title: draft.title,
         categoryId,
-        dueDate: draft.date || null,
+        dueDate: draft.dueDate || null,
         dueTime: draft.time || null,
         recurrence: labelToRecurrence(draft.repeat),
       };
@@ -391,7 +402,12 @@ export function StudioDashboard() {
             </button>
           ))}
         </nav>
-        <button className="sidebar-bell" aria-label="Уведомления">
+        <button
+          className="sidebar-bell"
+          aria-label="Уведомления — следующий этап"
+          title="Уведомления — следующий этап"
+          disabled
+        >
           <Bell size={17} />
         </button>
       </aside>
@@ -505,6 +521,9 @@ export function StudioDashboard() {
           onClose={() => setSelectedTask(null)}
           onComplete={completeTask}
           onUpdate={updateTask}
+          onDelete={async (id) => {
+            await plannerTasks.remove.mutateAsync(id);
+          }}
         />
       ) : null}
       {newTaskCategory ? (
@@ -566,7 +585,7 @@ function PlannerScreen({
     eventId: string,
     status: "held" | "cancelled"
   ) => Promise<unknown>;
-  onComplete: (id: string) => void;
+  onComplete: (id: string) => void | Promise<void>;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
   onNavigate: (screen: Screen) => void;
@@ -629,7 +648,7 @@ function PlannerScreen({
                 key={category}
                 category={category}
                 tasks={tasks.filter((task) => task.category === category)}
-                onComplete={onComplete}
+                onComplete={(id) => void onComplete(id)}
                 onOpen={onOpen}
                 onAdd={onAdd}
               />
@@ -648,7 +667,7 @@ function PlannerScreen({
         <div className="planner-dashboard-review planner-evening-review">
           <EveningReviewScreen
             tasks={tasks}
-            onComplete={onComplete}
+            onComplete={(id) => void onComplete(id)}
             onOpen={onOpen}
           />
         </div>
@@ -795,7 +814,7 @@ function CategoryColumn({
               <button
                 className="complete-button"
                 aria-label="Завершить"
-                onClick={() => onComplete(task.id)}
+                onClick={() => void onComplete(task.id)}
               >
                 {task.done ? <Check size={13} /> : null}
               </button>
@@ -863,7 +882,7 @@ function CalendarScreen({
   ): PlannerEvent => {
     const rect = event.currentTarget.getBoundingClientRect();
     const headerHeight = 44;
-    const availableHeight = rect.height - headerHeight;
+    const availableHeight = Math.max(1, rect.height - headerHeight);
     const offset = Math.min(
       availableHeight,
       Math.max(0, event.clientY - rect.top - headerHeight)
@@ -930,7 +949,7 @@ function CalendarScreen({
         </div>
         {days.map((day, index) => (
           <div
-            className={`calendar-day ${index === 2 ? "is-current" : ""}`}
+            className={`calendar-day ${index === todayIndex ? "is-current" : ""}`}
             key={day}
             onDragOver={(event) => {
               event.preventDefault();
@@ -1002,16 +1021,18 @@ function CalendarScreen({
           event={editing}
           days={days}
           onClose={() => setEditing(null)}
-          onSave={(event) => {
+          onSave={async (event) => {
             const mutation = event.isNew ? onCreate(event) : onUpdate(event);
-            void mutation.then(() => setEditing(null));
+            await mutation;
+            setEditing(null);
           }}
-          onDelete={(id) => {
+          onDelete={async (id) => {
             if (editing.isNew) {
               setEditing(null);
               return;
             }
-            void onDelete(id).then(() => setEditing(null));
+            await onDelete(id);
+            setEditing(null);
           }}
         />
       ) : null}
@@ -1028,11 +1049,35 @@ function CalendarEventModal({
   event: PlannerEvent;
   days: string[];
   onClose: () => void;
-  onSave: (event: PlannerEvent) => void;
-  onDelete: (id: string) => void;
+  onSave: (event: PlannerEvent) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [draft, setDraft] = React.useState(event);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const students = usePlannerStudents();
+  const save = async () => {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await onSave(draft);
+    } catch {
+      setError("Не удалось сохранить событие. Повторите ещё раз.");
+      setIsSaving(false);
+    }
+  };
+  const remove = async () => {
+    if (!event.isNew && !window.confirm("Удалить это событие?")) return;
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await onDelete(draft.id);
+    } catch {
+      setError("Не удалось удалить событие. Повторите ещё раз.");
+      setIsDeleting(false);
+    }
+  };
   return (
     <Modal onClose={onClose}>
       <div className="modal-top">
@@ -1117,18 +1162,26 @@ function CalendarEventModal({
           </select>
         </label>
       ) : null}
+      {error ? <p className="modal-error">{error}</p> : null}
       <div className="modal-footer">
-        <button className="delete-button" onClick={() => onDelete(draft.id)}>
-          <Trash2 size={15} /> Удалить
+        <button
+          className="delete-button"
+          disabled={isSaving || isDeleting}
+          onClick={() => void remove()}
+        >
+          <Trash2 size={15} /> {isDeleting ? "Удаляю…" : "Удалить"}
         </button>
         <button
           className="complete-modal"
           disabled={
-            !draft.title.trim() || (draft.kind === "lesson" && !draft.studentId)
+            isSaving ||
+            isDeleting ||
+            !draft.title.trim() ||
+            (draft.kind === "lesson" && !draft.studentId)
           }
-          onClick={() => onSave(draft)}
+          onClick={() => void save()}
         >
-          <Check size={16} /> Сохранить
+          <Check size={16} /> {isSaving ? "Сохраняю…" : "Сохранить"}
         </button>
       </div>
     </Modal>
@@ -1303,9 +1356,14 @@ function EveningReviewScreen({
   onComplete: (id: string) => void;
   onOpen: (task: Task) => void;
 }) {
-  const unfinished = tasks.filter((task) => task.due === "today" && !task.done);
+  const [acknowledged, setAcknowledged] = React.useState<Set<string>>(
+    () => new Set()
+  );
+  const unfinished = tasks.filter(
+    (task) => task.due === "today" && !task.done && !acknowledged.has(task.id)
+  );
   const completedToday = tasks.filter(
-    (task) => task.due === "today" && task.done
+    (task) => task.done && isLocalDateToday(task.completedAt)
   );
 
   return (
@@ -1336,7 +1394,17 @@ function EveningReviewScreen({
                     <button onClick={() => onOpen(task)}>
                       Поменять дедлайн
                     </button>
-                    <button className="leave-overdue" type="button">
+                    <button
+                      className="leave-overdue"
+                      type="button"
+                      onClick={() =>
+                        setAcknowledged((current) => {
+                          const next = new Set(current);
+                          next.add(task.id);
+                          return next;
+                        })
+                      }
+                    >
                       Оставить просроченной
                     </button>
                   </div>
@@ -1451,6 +1519,13 @@ function localDateString(date = new Date()) {
   const offset = date.getTimezoneOffset();
   return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
+function isLocalDateToday(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  return (
+    !Number.isNaN(date.getTime()) && localDateString(date) === localDateString()
+  );
+}
 function getDueTone(value: string | null): Task["due"] {
   if (!value) return "future";
   const today = localDateString();
@@ -1483,30 +1558,49 @@ function labelToRecurrence(
   if (value === "Каждый месяц") return "monthly";
   return "none";
 }
-function toDateInputValue(value: string) {
-  const days: Record<string, string> = {
-    Вчера: "2026-09-22",
-    Сегодня: "2026-09-23",
-    "22 сентября": "2026-09-22",
-    "27 сентября": "2026-09-27",
-    "29 сентября": "2026-09-29",
-  };
-  return days[value] ?? (value.match(/^\d{4}-\d{2}-\d{2}$/) ? value : "");
-}
 function TaskModal({
   task,
   onClose,
   onComplete,
   onUpdate,
+  onDelete,
 }: {
   task: Task;
   onClose: () => void;
-  onComplete: (id: string) => void;
-  onUpdate: (task: Task) => void;
+  onComplete: (id: string) => Promise<void>;
+  onUpdate: (task: Task) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [draft, setDraft] = React.useState(task);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const change = (field: keyof Task, value: string) =>
     setDraft((current) => ({ ...current, [field]: value }));
+  const save = async (complete = false) => {
+    setError(null);
+    setIsSaving(true);
+    try {
+      await onUpdate(draft);
+      if (complete) await onComplete(task.id);
+      onClose();
+    } catch {
+      setError("Не удалось сохранить задачу. Повторите ещё раз.");
+      setIsSaving(false);
+    }
+  };
+  const remove = async () => {
+    if (!window.confirm("Удалить эту задачу?")) return;
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await onDelete(task.id);
+      onClose();
+    } catch {
+      setError("Не удалось удалить задачу. Повторите ещё раз.");
+      setIsDeleting(false);
+    }
+  };
   return (
     <Modal onClose={onClose}>
       <div className="modal-top">
@@ -1538,8 +1632,8 @@ function TaskModal({
           Дата дедлайна
           <input
             type="date"
-            value={toDateInputValue(draft.date)}
-            onChange={(event) => change("date", event.target.value)}
+            value={draft.dueDate ?? ""}
+            onChange={(event) => change("dueDate", event.target.value)}
           />
         </label>
       </div>
@@ -1576,29 +1670,34 @@ function TaskModal({
           placeholder="Добавьте детали задачи"
         />
       </label>
-      <button className="attachment-button">
-        <Paperclip size={15} /> Прикрепить файл, изображение или ссылку
+      <button
+        className="attachment-button"
+        type="button"
+        disabled
+        title="Вложения будут подключены следующим этапом"
+      >
+        <Paperclip size={15} /> Вложения — следующим этапом
       </button>
+      {error ? <p className="modal-error">{error}</p> : null}
       <div className="modal-footer">
-        <button className="delete-button">
-          <Trash2 size={15} /> Удалить
+        <button
+          className="delete-button"
+          disabled={isSaving || isDeleting}
+          onClick={() => void remove()}
+        >
+          <Trash2 size={15} /> {isDeleting ? "Удаляю…" : "Удалить"}
         </button>
         <button
           className="save-task"
-          onClick={() => {
-            onUpdate(draft);
-            onClose();
-          }}
+          disabled={isSaving || isDeleting || !draft.title.trim()}
+          onClick={() => void save()}
         >
-          Сохранить
+          {isSaving ? "Сохраняю…" : "Сохранить"}
         </button>
         <button
           className="complete-modal"
-          onClick={() => {
-            onUpdate(draft);
-            onComplete(task.id);
-            onClose();
-          }}
+          disabled={isSaving || isDeleting || !draft.title.trim()}
+          onClick={() => void save(true)}
         >
           <CircleCheck size={16} /> {task.done ? "Вернуть" : "Завершить"}
         </button>
@@ -1619,9 +1718,7 @@ function CreateTaskModal({
   isCreating: boolean;
   error: string | null;
   onClose: () => void;
-  onCreate: (
-    task: Pick<Task, "title" | "category" | "date" | "time" | "repeat">
-  ) => void;
+  onCreate: (task: TaskDraft) => void;
 }) {
   const [title, setTitle] = React.useState(initialTitle ?? "");
   const [target, setTarget] = React.useState(category);
@@ -1701,7 +1798,7 @@ function CreateTaskModal({
           onCreate({
             title: title.trim(),
             category: target,
-            date,
+            dueDate: date || null,
             time,
             repeat,
           })

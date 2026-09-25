@@ -33,6 +33,18 @@ function TimezoneSync({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function DefaultNotFound() {
+  const isTauri =
+    typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+  React.useEffect(() => {
+    if (isTauri) window.location.replace("/app");
+  }, [isTauri]);
+
+  if (isTauri) return null;
+  return <main>Страница не найдена.</main>;
+}
+
 // Create the router instance.
 // `defaultPreloadStaleTime` controls how long preloaded data is reused before
 // the router considers it stale. Bumping this off 0 means hovering a link
@@ -42,6 +54,7 @@ const router = createRouter({
   defaultPreload: "intent",
   defaultPreloadStaleTime: 30_000,
   defaultPreloadGcTime: 5 * 60_000,
+  defaultNotFoundComponent: DefaultNotFound,
 });
 
 // Register the router for type safety

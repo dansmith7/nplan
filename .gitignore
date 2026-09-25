@@ -48,6 +48,7 @@ Thumbs.db
 .cache
 .vite
 .local
+.vercel
 
 # Drizzle
 drizzle/*.sql
@@ -61,3 +62,5 @@ apps/desktop/src-tauri/target
 apps/desktop/src-tauri/gen
 apps/mobile/src-tauri/target
 apps/mobile/src-tauri/gen
+.vercel
+.env*

@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
   }
 
   const text = (message.text ?? message.caption ?? "").trim();
-  if (text === "/start") {
+  if (text === "/start" || text.startsWith("/start ")) {
     await sendTelegramMessage(
       message.chat.id,
       "NPlan подключён. Пришли задачу обычным сообщением — я добавлю её во входящие планнера."

@@ -27,8 +27,8 @@ function SupabaseLoginPage() {
   const redirect = React.useMemo(getSafeRedirect, []);
   const { session } = useSupabaseSession();
   const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isSent, setIsSent] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -42,56 +42,61 @@ function SupabaseLoginPage() {
     if (!supabase) return;
     setIsLoading(true);
     setError(null);
-    const { error: authError } = await supabase.auth.signInWithOtp({
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/app` },
+      password,
     });
     setIsLoading(false);
     if (authError) {
-      setError(authError.message);
+      setError("Не удалось войти. Проверьте почту и пароль.");
       return;
     }
-    setIsSent(true);
   };
 
   return (
     <AuthLayout>
       <AuthHeader
         title="Войти в планнер"
-        description="Пришлём одноразовую ссылку на вашу почту."
+        description="Используйте почту и пароль для входа."
       />
-      {isSent ? (
-        <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
-          <p className="font-medium">Ссылка отправлена.</p>
-          <p className="text-muted-foreground">
-            Откройте письмо на {email} в этом браузере — планнер откроется
-            автоматически.
-          </p>
+      <form onSubmit={onSubmit} className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="email">Почта</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            autoCorrect="off"
+            disabled={isLoading}
+            required
+          />
         </div>
-      ) : (
-        <form onSubmit={onSubmit} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Почта</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect="off"
-              disabled={isLoading}
-              required
-            />
-          </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <Button type="submit" disabled={isLoading || !email} className="mt-2 h-10 w-full text-[13px]">
-            {isLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-            Отправить ссылку
-          </Button>
-        </form>
-      )}
+        <div className="grid gap-2">
+          <Label htmlFor="password">Пароль</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            disabled={isLoading}
+            required
+          />
+        </div>
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button
+          type="submit"
+          disabled={isLoading || !email || !password}
+          className="mt-2 h-10 w-full text-[13px]"
+        >
+          {isLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+          Войти
+        </Button>
+      </form>
     </AuthLayout>
   );
 }

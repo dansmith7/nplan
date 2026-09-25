@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { toast } from "@/hooks/use-toast";
 import { getApi } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 interface PasswordForm {
   currentPassword: string;
@@ -86,6 +87,7 @@ function PasswordInput({
 }
 
 export function PasswordSettings() {
+  const usesSupabase = Boolean(supabase);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
   const [showNewPassword, setShowNewPassword] = React.useState(false);
@@ -119,11 +121,18 @@ export function PasswordSettings() {
 
     setIsLoading(true);
     try {
-      const api = getApi();
-      await api.auth.changePassword({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      });
+      if (supabase) {
+        const { error } = await supabase.auth.updateUser({
+          password: data.newPassword,
+        });
+        if (error) throw error;
+      } else {
+        const api = getApi();
+        await api.auth.changePassword({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword,
+        });
+      }
       
       toast({
         title: "Password changed",
@@ -148,23 +157,27 @@ export function PasswordSettings() {
       <CardHeader>
         <CardTitle>Change Password</CardTitle>
         <CardDescription>
-          Update your password to keep your account secure
+          {usesSupabase
+            ? "Set or update the password for this planner account"
+            : "Update your password to keep your account secure"}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <PasswordInput
-            id="currentPassword"
-            label="Current Password"
-            placeholder="Enter your current password"
-            autoComplete="current-password"
-            showPassword={showCurrentPassword}
-            onToggleShow={() => setShowCurrentPassword(!showCurrentPassword)}
-            disabled={isLoading}
-            error={errors.currentPassword?.message}
-            register={register}
-            registerOptions={{ required: "Current password is required" }}
-          />
+          {!usesSupabase ? (
+            <PasswordInput
+              id="currentPassword"
+              label="Current Password"
+              placeholder="Enter your current password"
+              autoComplete="current-password"
+              showPassword={showCurrentPassword}
+              onToggleShow={() => setShowCurrentPassword(!showCurrentPassword)}
+              disabled={isLoading}
+              error={errors.currentPassword?.message}
+              register={register}
+              registerOptions={{ required: "Current password is required" }}
+            />
+          ) : null}
 
           <div className="grid gap-2">
             <PasswordInput

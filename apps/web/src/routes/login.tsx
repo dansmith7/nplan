@@ -37,8 +37,7 @@ function SupabaseLoginPage() {
     else void navigate({ to: "/app", replace: true });
   }, [navigate, redirect, session]);
 
-  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitLogin = async () => {
     if (!supabase) return;
     setIsLoading(true);
     setError(null);
@@ -81,6 +80,18 @@ function SupabaseLoginPage() {
     }
   };
 
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitLogin();
+  };
+
+  const onLoginClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Some embedded browsers submit the form before React's submit handler
+    // runs. Cancelling the native action here keeps this flow deterministic.
+    event.preventDefault();
+    void submitLogin();
+  };
+
   return (
     <AuthLayout>
       <AuthHeader
@@ -118,6 +129,7 @@ function SupabaseLoginPage() {
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <Button
           type="submit"
+          onClick={onLoginClick}
           disabled={isLoading || !email || !password}
           className="mt-2 h-10 w-full text-[13px]"
         >

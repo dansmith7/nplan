@@ -29,7 +29,15 @@ Never add a Supabase service-role key to a Vite `VITE_*` variable. That key will
 ## Telegram inbox
 
 `functions/telegram-webhook` accepts private text messages from one allowed
-Telegram chat and saves them to `inbox_items`. Configure its four secrets from
-`functions/.env.example`, deploy it without Supabase JWT verification, and set
-the Telegram webhook with the same `TELEGRAM_WEBHOOK_SECRET` as its
+Telegram chat and saves them to `inbox_items`. Configure the function secrets
+from `functions/.env.example`, deploy it without Supabase JWT verification, and
+set the Telegram webhook with the same `TELEGRAM_WEBHOOK_SECRET` as its
 `secret_token`.
+
+If `KINOPOISK_API_KEY` is configured, the webhook enriches movie-like Telegram
+messages through Kinopoisk API Unofficial before saving them. The enriched
+payload is stored in `inbox_items.metadata.movie` and includes title, poster,
+year, short description, Kinopoisk/IMDb ratings, directors and source URL.
+By default this runs only for Kinopoisk links or messages with movie words like
+`фильм`, `сериал` or `посмотреть`. Set `KINOPOISK_ENRICH_ALL_TEXT=true` only if
+this private bot should try Kinopoisk search for every incoming text.

@@ -55,7 +55,7 @@ html.studio-shell-active.tauri-window #root {
   display: flex !important;
   gap: 5px;
   align-items: center !important;
-  font: 600 12px TTCommons !important;
+  font: 600 13px TTCommons !important;
 }
 .back-link {
   display: flex;
@@ -64,7 +64,7 @@ html.studio-shell-active.tauri-window #root {
   border: 0;
   background: transparent;
   color: #b8b2a9;
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   cursor: pointer;
 }
 .profile-hero {
@@ -81,7 +81,7 @@ html.studio-shell-active.tauri-window #root {
 .profile-history header span {
   display: block;
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.13em;
 }
 .profile-hero h1 {
@@ -130,7 +130,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .student-schedule > header span {
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.13em;
 }
@@ -147,7 +147,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 6px;
   background: transparent;
   color: var(--paper);
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   cursor: pointer;
 }
 .student-schedule-list {
@@ -163,11 +163,11 @@ html.studio-shell-active.tauri-window #root {
   gap: 3px;
 }
 .student-schedule article b {
-  font-size: 14px;
+  font-size: 15px;
 }
 .student-schedule article span {
   color: #969289;
-  font-size: 11px;
+  font-size: 13px;
 }
 .student-schedule article button {
   width: 36px;
@@ -202,7 +202,7 @@ html.studio-shell-active.tauri-window #root {
   border-top: 1px solid var(--line);
   background: transparent;
   color: var(--paper);
-  font: 600 14px TTCommons;
+  font: 600 15px TTCommons;
   text-align: left;
   cursor: pointer;
 }
@@ -217,7 +217,7 @@ html.studio-shell-active.tauri-window #root {
 .student-history-empty {
   margin-top: var(--space-4);
   color: #969289;
-  font: 400 15px/1.4 TTCommons;
+  font: 400 16px/1.4 TTCommons;
 }
 .students-empty-state {
   margin-top: var(--space-5);
@@ -244,7 +244,7 @@ html.studio-shell-active.tauri-window #root {
   gap: 9px;
   line-height: 1;
   text-align: center;
-  font: 600 15px/1 TTCommons;
+  font: 600 16px/1 TTCommons;
 }
 .inbox-actions button svg {
   flex: 0 0 auto;
@@ -270,7 +270,7 @@ html.studio-shell-active.tauri-window #root {
 .student-history header span {
   display: block;
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.13em;
 }
 .student-history h2 {
@@ -282,7 +282,7 @@ html.studio-shell-active.tauri-window #root {
   max-width: 235px;
   margin: 0;
   color: #97938b;
-  font-size: 12px;
+  font-size: 13px;
 }
 .history-columns {
   display: grid;
@@ -301,11 +301,11 @@ html.studio-shell-active.tauri-window #root {
   margin-bottom: 12px;
 }
 .history-student b {
-  font-size: 16px;
+  font-size: 17px;
 }
 .history-student span {
   color: #a9a49b;
-  font-size: 11px;
+  font-size: 13px;
 }
 .history-columns button {
   position: relative;
@@ -326,15 +326,15 @@ html.studio-shell-active.tauri-window #root {
 .history-columns button span {
   grid-row: span 2;
   color: #9a958c;
-  font-size: 11px;
+  font-size: 13px;
 }
 .history-columns button strong {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .history-columns button small {
   color: #a9a49b;
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -371,7 +371,7 @@ html.studio-shell-active.tauri-window #root {
   align-items: center;
   justify-content: space-between;
   color: #88837a;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.13em;
 }
@@ -379,7 +379,7 @@ html.studio-shell-active.tauri-window #root {
   border: 0;
   background: transparent;
   color: #5f5a53;
-  font: 600 10px TTCommons;
+  font: 600 12px TTCommons;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -403,14 +403,14 @@ html.studio-shell-active.tauri-window #root {
   flex-direction: column;
   justify-content: space-around;
   color: #aaa49b;
-  font-size: 9px;
+  font-size: 11px;
 }
 .home-day {
   position: relative;
   border-left: 1px solid #e4e0d8;
   padding: 8px 8px;
   color: #8e8980;
-  font-size: 10px;
+  font-size: 12px;
 }
 .home-day.is-today > span {
   display: inline-block;
@@ -426,7 +426,7 @@ html.studio-shell-active.tauri-window #root {
   right: 6px;
   padding: 4px 6px;
   border-radius: 4px;
-  font: 600 9px/1.1 TTCommons;
+  font: 600 11px/1.1 TTCommons;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -455,12 +455,12 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 6px;
   background: #fffdfa;
   color: var(--ink);
-  font: 400 15px TTCommons;
+  font: 400 16px TTCommons;
 }
 .modal-error {
   margin: 0;
   color: var(--overdue);
-  font: 500 14px/1.35 TTCommons;
+  font: 500 15px/1.35 TTCommons;
 }
 .save-task {
   border: 1px solid #bbb3a8;
@@ -468,7 +468,7 @@ html.studio-shell-active.tauri-window #root {
   color: var(--ink);
   border-radius: 6px;
   padding: 10px 12px;
-  font: 600 13px TTCommons;
+  font: 600 14px TTCommons;
   cursor: pointer;
 }
 .modal-footer {
@@ -642,7 +642,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .world-clock span,
 .world-clock small {
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1;
   letter-spacing: 0.1em;
   font-weight: 600;
@@ -687,18 +687,18 @@ html.studio-shell-active.tauri-window #root {
 .section-title > div > span {
   display: block;
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.13em;
   font-weight: 600;
 }
 .planner-header strong {
-  font-size: 17px;
+  font-size: 18px;
 }
 .header-date {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 13px;
+  font-size: 14px;
   color: #a7a39a;
 }
 .header-date b {
@@ -733,7 +733,7 @@ html.studio-shell-active.tauri-window #root {
 .planner-intro p {
   margin: 0;
   color: #99958d;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.13em;
   font-weight: 600;
 }
@@ -749,7 +749,7 @@ html.studio-shell-active.tauri-window #root {
   background: var(--paper);
   color: var(--ink);
   padding: 10px 13px;
-  font: 600 13px TTCommons;
+  font: 600 14px TTCommons;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -781,21 +781,21 @@ html.studio-shell-active.tauri-window #root {
 }
 .deadline-item span {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.11em;
   text-transform: uppercase;
   opacity: 0.7;
 }
 .deadline-item b {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   margin-top: 3px;
 }
 .calendar-nudge {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--paper);
-  font: 600 13px TTCommons;
+  font: 600 14px TTCommons;
   cursor: pointer;
 }
 .calendar-nudge svg:last-child {
@@ -812,7 +812,7 @@ html.studio-shell-active.tauri-window #root {
 .section-title p {
   margin: 0;
   color: #8f8b83;
-  font-size: 12px;
+  font-size: 13px;
 }
 .category-scroll {
   display: grid;
@@ -855,7 +855,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .china-glyph {
   font:
-    600 16px/1 Georgia,
+    600 17px/1 Georgia,
     serif;
   transform: translateY(-1px);
 }
@@ -867,7 +867,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .category-column h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
 }
 .category-column header small {
   margin-left: auto;
@@ -892,7 +892,7 @@ html.studio-shell-active.tauri-window #root {
   letter-spacing: -0.04em;
 }
 .category-empty small {
-  font-size: 11px;
+  font-size: 13px;
 }
 .task-card {
   display: flex;
@@ -939,14 +939,14 @@ html.studio-shell-active.tauri-window #root {
 }
 .task-open span {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.1;
 }
 .task-open small {
   display: block;
   margin-top: 6px;
   color: #a5a097;
-  font-size: 10px;
+  font-size: 12px;
 }
 .task-open small.overdue {
   color: var(--overdue);
@@ -962,7 +962,7 @@ html.studio-shell-active.tauri-window #root {
   border: 0;
   background: transparent;
   color: #aaa59c;
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: flex;
   gap: 5px;
   cursor: pointer;
@@ -972,7 +972,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .screen-heading > p {
   color: #97938b;
-  font-size: 13px;
+  font-size: 14px;
   margin: 0;
 }
 .calendar-controls {
@@ -980,7 +980,7 @@ html.studio-shell-active.tauri-window #root {
   align-items: center;
   gap: 12px;
   color: #d7d1c8;
-  font-size: 13px;
+  font-size: 14px;
 }
 .calendar-controls button {
   width: 28px;
@@ -996,7 +996,7 @@ html.studio-shell-active.tauri-window #root {
 .calendar-hint {
   margin: 0 0 var(--space-3);
   color: #99958d;
-  font-size: 13px;
+  font-size: 14px;
 }
 .calendar-board {
   height: 500px;
@@ -1019,7 +1019,7 @@ html.studio-shell-active.tauri-window #root {
   flex-direction: column;
   justify-content: space-around;
   color: #aaa49b;
-  font-size: 10px;
+  font-size: 12px;
   background: var(--paper);
   border-right: 1px solid #e3dfd7;
 }
@@ -1032,7 +1032,7 @@ html.studio-shell-active.tauri-window #root {
   padding: 14px 12px;
   color: #8b867f;
   border-bottom: 1px solid #e3dfd7;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 .calendar-day.is-current header {
@@ -1049,7 +1049,7 @@ html.studio-shell-active.tauri-window #root {
   background: #e5e1da;
   color: #36332f;
   text-align: left;
-  font: 600 11px/1.1 TTCommons;
+  font: 600 13px/1.1 TTCommons;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -1060,7 +1060,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .calendar-event small {
   display: block;
-  font-size: 8px;
+  font-size: 11px;
   opacity: 0.6;
   margin-bottom: 3px;
 }
@@ -1114,7 +1114,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .calendar-empty-state span {
   color: #837d75;
-  font-size: 12px;
+  font-size: 13px;
 }
 .calendar-empty-state button,
 .empty-state button {
@@ -1124,7 +1124,7 @@ html.studio-shell-active.tauri-window #root {
   background: #24221e;
   color: var(--paper);
   padding: 0 11px;
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1155,7 +1155,7 @@ html.studio-shell-active.tauri-window #root {
   max-width: 430px;
   margin: 0;
   color: #99948b;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.35;
 }
 .daily-review {
@@ -1169,7 +1169,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .task-horizon > header > span {
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.13em;
 }
@@ -1222,7 +1222,7 @@ html.studio-shell-active.tauri-window #root {
 .review-summary > span {
   display: block;
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.13em;
 }
@@ -1235,7 +1235,7 @@ html.studio-shell-active.tauri-window #root {
   max-width: 300px;
   margin: 0;
   color: #97938b;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.35;
 }
 .review-summary {
@@ -1281,7 +1281,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .lesson-confirmations > header > div > span {
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.13em;
 }
@@ -1292,7 +1292,7 @@ html.studio-shell-active.tauri-window #root {
 .lesson-confirmations header p {
   margin: 0;
   color: #8f8b83;
-  font-size: 12px;
+  font-size: 13px;
 }
 .lesson-confirmations article {
   min-height: 64px;
@@ -1306,11 +1306,11 @@ html.studio-shell-active.tauri-window #root {
   gap: 2px;
 }
 .lesson-confirmations article b {
-  font-size: 14px;
+  font-size: 15px;
 }
 .lesson-confirmations article span {
   color: #969289;
-  font-size: 11px;
+  font-size: 13px;
 }
 .lesson-confirmations article button {
   min-height: 38px;
@@ -1319,7 +1319,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 6px;
   background: var(--paper);
   color: var(--ink);
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1395,13 +1395,13 @@ html.studio-shell-active.tauri-window #root {
   align-items: center;
 }
 .review-task-list b {
-  font-size: 13px;
+  font-size: 14px;
 }
 .review-task-list small {
   grid-column: 1;
   color: inherit;
   opacity: 0.63;
-  font-size: 10px;
+  font-size: 12px;
 }
 .review-panel-state {
   min-height: 62px;
@@ -1413,13 +1413,13 @@ html.studio-shell-active.tauri-window #root {
   color: inherit;
 }
 .review-panel-state b {
-  font-size: 13px;
+  font-size: 14px;
 }
 .review-panel-state small {
   max-width: 28ch;
   color: inherit;
   opacity: 0.63;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.25;
 }
 .review-task-list svg {
@@ -1435,7 +1435,7 @@ html.studio-shell-active.tauri-window #root {
   align-items: center;
   gap: 8px;
   color: #c8c3ba;
-  font-size: 12px;
+  font-size: 13px;
 }
 .review-mail-list button svg:first-child {
   color: var(--today);
@@ -1448,7 +1448,7 @@ html.studio-shell-active.tauri-window #root {
   background: transparent;
   color: #aaa59c;
   padding: 0;
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1465,7 +1465,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 7px;
   background: var(--paper);
   color: var(--ink);
-  font: 600 13px TTCommons;
+  font: 600 14px TTCommons;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1494,12 +1494,12 @@ html.studio-shell-active.tauri-window #root {
   display: block;
 }
 .evening-task-list b {
-  font-size: 14px;
+  font-size: 15px;
 }
 .evening-task-list span {
   margin-top: 4px;
   color: #969289;
-  font-size: 10px;
+  font-size: 12px;
 }
 .evening-actions {
   display: flex;
@@ -1512,7 +1512,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 5px;
   background: transparent;
   color: var(--paper);
-  font: 600 11px TTCommons;
+  font: 600 13px TTCommons;
   cursor: pointer;
 }
 .evening-actions button:first-child {
@@ -1547,7 +1547,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .review-finish-card p {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.25;
 }
 .review-empty {
@@ -1556,7 +1556,7 @@ html.studio-shell-active.tauri-window #root {
   align-items: center;
   gap: 8px;
   color: inherit;
-  font-size: 13px;
+  font-size: 14px;
   opacity: 0.76;
 }
 .review-exit {
@@ -1600,18 +1600,18 @@ html.studio-shell-active.tauri-window #root {
 }
 .inbox-copy span {
   color: #9b968d;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .inbox-copy h2 {
-  font-size: 17px;
+  font-size: 18px;
   margin: 4px 0;
 }
 .inbox-copy p {
   margin: 0;
   color: #969188;
-  font-size: 12px;
+  font-size: 13px;
 }
 .inbox-actions {
   display: flex;
@@ -1620,7 +1620,7 @@ html.studio-shell-active.tauri-window #root {
 .inbox-actions button {
   border-radius: 6px;
   padding: 8px 10px;
-  font: 600 15px/1 TTCommons;
+  font: 600 16px/1 TTCommons;
   cursor: pointer;
 }
 .create-from-inbox {
@@ -1667,7 +1667,7 @@ html.studio-shell-active.tauri-window #root {
 .inbox-collection-heading p {
   margin: 9px 0 0;
   color: #817c73;
-  font: 400 12px/1.3 TTCommons;
+  font: 400 13px/1.3 TTCommons;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1705,12 +1705,12 @@ html.studio-shell-active.tauri-window #root {
   display: block;
 }
 .inbox-collection-types b {
-  font: 600 13px TTCommons;
+  font: 600 14px TTCommons;
 }
 .inbox-collection-types small {
   margin-top: 3px;
   color: #817c73;
-  font: 400 10px TTCommons;
+  font: 400 12px TTCommons;
 }
 @media (max-width: 560px) {
   .inbox-collection-types { grid-template-columns: 1fr; }
@@ -1751,7 +1751,7 @@ html.studio-shell-active.tauri-window #root {
   display: block;
   margin-top: 31px;
   color: #777169;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.12em;
 }
 .student-card h2 {
@@ -1761,7 +1761,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .student-card p {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 .student-card > div:last-child {
   position: absolute;
@@ -1777,7 +1777,7 @@ html.studio-shell-active.tauri-window #root {
   border: 0;
   background: transparent;
   color: var(--ink);
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: flex;
   gap: 5px;
   cursor: pointer;
@@ -1791,7 +1791,7 @@ html.studio-shell-active.tauri-window #root {
   display: flex;
   gap: 9px;
   color: #a9a49b;
-  font-size: 13px;
+  font-size: 14px;
 }
 .lesson-note svg {
   color: var(--today);
@@ -1851,7 +1851,7 @@ html.studio-shell-active.tauri-window #root {
   display: flex;
   justify-content: space-between;
   color: #756f66;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.11em;
 }
 .modal-top button {
@@ -1868,7 +1868,7 @@ html.studio-shell-active.tauri-window #root {
   gap: 6px;
   margin-bottom: 15px;
   color: #615c55;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.08em;
 }
 .planner-modal input,
@@ -1878,7 +1878,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 6px;
   background: #fffdfa;
   color: var(--ink);
-  font: 400 15px TTCommons;
+  font: 400 16px TTCommons;
 }
 .planner-modal textarea {
   min-height: 84px;
@@ -1889,7 +1889,7 @@ html.studio-shell-active.tauri-window #root {
   background: transparent;
   padding: 10px;
   color: #625d55;
-  font: 600 12px TTCommons;
+  font: 600 13px TTCommons;
   display: flex;
   gap: 6px;
 }
@@ -1900,7 +1900,7 @@ html.studio-shell-active.tauri-window #root {
 .notification-copy {
   margin: 0;
   color: #716b62;
-  font: 400 15px/1.45 TTCommons;
+  font: 400 16px/1.45 TTCommons;
 }
 .notification-list {
   display: grid;
@@ -1919,11 +1919,11 @@ html.studio-shell-active.tauri-window #root {
   gap: 3px;
 }
 .notification-list b {
-  font: 600 17px/1 TTCommons;
+  font: 600 18px/1 TTCommons;
 }
 .notification-list span {
   color: #756f66;
-  font: 500 12px/1.2 TTCommons;
+  font: 500 13px/1.2 TTCommons;
 }
 .notification-status {
   min-height: 42px;
@@ -1933,7 +1933,7 @@ html.studio-shell-active.tauri-window #root {
   display: flex;
   align-items: center;
   gap: 8px;
-  font: 600 13px/1 TTCommons;
+  font: 600 14px/1 TTCommons;
 }
 .notification-status.is-enabled {
   background: #e7eadf;
@@ -1958,11 +1958,11 @@ html.studio-shell-active.tauri-window #root {
   gap: 4px;
 }
 .notification-toggle b {
-  font: 600 14px/1 TTCommons;
+  font: 600 15px/1 TTCommons;
 }
 .notification-toggle small {
   color: #756f66;
-  font: 400 12px/1.2 TTCommons;
+  font: 400 13px/1.2 TTCommons;
 }
 .notification-toggle i {
   width: 34px;
@@ -2008,7 +2008,7 @@ html.studio-shell-active.tauri-window #root {
   border-radius: 6px;
   min-height: 48px;
   padding: 0 18px;
-  font: 600 15px/1 TTCommons;
+  font: 600 16px/1 TTCommons;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2023,7 +2023,7 @@ html.studio-shell-active.tauri-window #root {
 .delete-button {
   min-height: auto;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .delete-button {
   background: transparent;

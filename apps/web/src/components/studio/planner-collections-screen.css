@@ -254,19 +254,23 @@
   display: grid;
   gap: 8px;
 }
-.generic-collection-list article {
+.generic-collection-card {
+  width: 100%;
   min-height: 92px;
   padding: 15px 16px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--panel);
+  color: inherit;
   display: grid;
   grid-template-columns: 40px 1fr auto;
   align-items: center;
   gap: 14px;
+  text-align: left;
+  cursor: pointer;
   transition: transform var(--motion-quick) var(--motion-ease-out), border-color var(--motion-quick) ease;
 }
-.generic-collection-list article:hover {
+.generic-collection-card:hover {
   transform: translateY(-1px);
   border-color: #f4f1eb2b;
 }
@@ -308,6 +312,28 @@
   color: #aaa59c;
   display: grid;
   place-items: center;
+}
+.generic-collection-card > svg {
+  color: #817c73;
+}
+.collection-item-editor .field-hint {
+  display: block;
+  margin-top: 6px;
+  color: #817c73;
+  font: 400 10px/1.25 TTCommons;
+}
+.collection-checkbox {
+  min-height: 38px;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font: 600 12px TTCommons;
+}
+.collection-checkbox input {
+  width: 16px !important;
+  height: 16px;
+  margin: 0 !important;
 }
 @keyframes generic-spin { to { transform: rotate(360deg); } }
 .movie-editor {

@@ -20,6 +20,7 @@ export type PlannerCalendarEventRow = {
     homework: string | null;
     status: "scheduled" | "held" | "cancelled";
   } | null;
+  collection_item_id: string | null;
 };
 
 export type CalendarEventInput = {
@@ -40,17 +41,38 @@ const calendarKey = (userId?: string, range?: EventRange) =>
 async function getCalendarEvents(
   range: EventRange
 ): Promise<PlannerCalendarEventRow[]> {
-  const { data, error } = await requireSupabase()
-    .from("calendar_events")
-    .select(
-      "id, task_id, student_id, kind, title, description, starts_at, ends_at, recurrence, student:students(id, name), notes:lesson_notes(topic, homework, status)"
-    )
-    .gte("starts_at", range.from)
-    .lt("starts_at", range.to)
-    .order("starts_at")
-    .returns<PlannerCalendarEventRow[]>();
-  if (error) throw error;
-  return data.filter((event) => event.notes?.status !== "cancelled");
+  const client = requireSupabase();
+  const [calendarResult, birthdayResult] = await Promise.all([
+    client
+      .from("calendar_events")
+      .select("id, task_id, student_id, kind, title, description, starts_at, ends_at, recurrence, student:students(id, name), notes:lesson_notes(topic, homework, status)")
+      .gte("starts_at", range.from).lt("starts_at", range.to).order("starts_at")
+      .returns<Array<Omit<PlannerCalendarEventRow, "collection_item_id">>>(),
+    client
+      .from("test_collection_calendar_events")
+      .select("id, item_id, title, starts_at, ends_at")
+      .gte("starts_at", range.from).lt("starts_at", range.to).order("starts_at"),
+  ]);
+  if (calendarResult.error) throw calendarResult.error;
+  if (birthdayResult.error) throw birthdayResult.error;
+  const calendar = calendarResult.data
+    .filter((event) => event.notes?.status !== "cancelled")
+    .map((event) => ({ ...event, collection_item_id: null }));
+  const birthdays: PlannerCalendarEventRow[] = (birthdayResult.data ?? []).map((event) => ({
+    id: `collection:${event.id}`,
+    task_id: null,
+    student_id: null,
+    kind: "meeting",
+    title: event.title,
+    description: "Ежегодное напоминание из коллекции «Дни рождения»",
+    starts_at: event.starts_at,
+    ends_at: event.ends_at,
+    recurrence: "none",
+    student: null,
+    notes: null,
+    collection_item_id: event.item_id,
+  }));
+  return [...calendar, ...birthdays].sort((a,b) => a.starts_at.localeCompare(b.starts_at));
 }
 
 const toRow = (input: CalendarEventInput) => ({
@@ -100,10 +122,10 @@ export function usePlannerCalendarEvents(range: EventRange) {
       id,
       ...input
     }: CalendarEventInput & { id: string }) => {
-      const { error } = await requireSupabase()
-        .from("calendar_events")
-        .update(toRow(input))
-        .eq("id", id);
+      const birthdayId = id.startsWith("collection:") ? id.slice(11) : null;
+      const { error } = birthdayId
+        ? await requireSupabase().from("test_collection_calendar_events").update({ title: input.title.trim(), starts_at: input.startsAt, ends_at: input.endsAt }).eq("id", birthdayId)
+        : await requireSupabase().from("calendar_events").update(toRow(input)).eq("id", id);
       if (error) throw error;
     },
     onMutate: async ({ id, ...input }) => {
@@ -123,10 +145,10 @@ export function usePlannerCalendarEvents(range: EventRange) {
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await requireSupabase()
-        .from("calendar_events")
-        .delete()
-        .eq("id", id);
+      const birthdayId = id.startsWith("collection:") ? id.slice(11) : null;
+      const { error } = birthdayId
+        ? await requireSupabase().from("test_collection_calendar_events").delete().eq("id", birthdayId)
+        : await requireSupabase().from("calendar_events").delete().eq("id", id);
       if (error) throw error;
     },
     onMutate: async (id) => {

@@ -15,10 +15,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  type CollectionItemInput,
   type CollectionItemType,
   type MovieInput,
   type MovieStatus,
   type PlannerMovie,
+  type PlannerCollectionItem,
   useKinopoiskMovieSearch,
   usePlannerCollectionItems,
   usePlannerMovies,
@@ -70,6 +72,9 @@ export function PlannerCollectionsScreen({
   const [editing, setEditing] = React.useState<PlannerMovie | "new" | null>(
     null
   );
+  const [genericEditing, setGenericEditing] = React.useState<
+    PlannerCollectionItem | "new" | null
+  >(null);
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("ru-RU");
     return (movies.data ?? []).filter((item) => {
@@ -97,7 +102,9 @@ export function PlannerCollectionsScreen({
             <Plus size={16} /> Добавить фильм
           </button>
         ) : (
-          <span className="collections-from-inbox">ДОБАВЛЯЕТСЯ ИЗ ВХОДЯЩИХ</span>
+          <button className="collections-add" onClick={() => setGenericEditing("new")}>
+            <Plus size={16} /> Добавить запись
+          </button>
         )}
       </div>
 
@@ -192,6 +199,7 @@ export function PlannerCollectionsScreen({
           items={genericItems.data ?? []}
           isLoading={genericItems.isLoading}
           isError={genericItems.isError}
+          onOpen={setGenericEditing}
         />
       )}
 
@@ -216,6 +224,26 @@ export function PlannerCollectionsScreen({
           }
         />
       ) : null}
+      {genericEditing ? (
+        <CollectionItemEditor
+          type={genericType}
+          item={genericEditing === "new" ? null : genericEditing}
+          isSaving={genericItems.save.isPending}
+          onClose={() => setGenericEditing(null)}
+          onSave={async (input) => {
+            await genericItems.save.mutateAsync({
+              id: genericEditing === "new" ? undefined : genericEditing.id,
+              input,
+            });
+            setGenericEditing(null);
+          }}
+          onDelete={genericEditing === "new" ? undefined : async () => {
+            if (!window.confirm(`Удалить «${genericEditing.title}»?`)) return;
+            await genericItems.remove.mutateAsync(genericEditing.id);
+            setGenericEditing(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -225,17 +253,13 @@ function GenericCollection({
   items,
   isLoading,
   isError,
+  onOpen,
 }: {
   type: Exclude<CollectionItemType, "movie">;
-  items: Array<{
-    id: string;
-    title: string;
-    note: string | null;
-    source_url: string | null;
-    created_at: string;
-  }>;
+  items: PlannerCollectionItem[];
   isLoading: boolean;
   isError: boolean;
+  onOpen: (item: PlannerCollectionItem) => void;
 }) {
   if (isLoading) return <div className="collection-empty"><LoaderCircle className="generic-loader" size={20} /><h2>Собираю коллекцию…</h2></div>;
   if (isError) return <div className="collection-empty collection-error"><h2>Коллекция пока недоступна.</h2></div>;
@@ -243,16 +267,99 @@ function GenericCollection({
   return (
     <div className="generic-collection-list">
       {items.map((item) => (
-        <article key={item.id}>
+        <button className="generic-collection-card" key={item.id} onClick={() => onOpen(item)}>
           <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
           <div>
-            <span>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(item.created_at))}</span>
+            <span>{collectionMeta(item)}</span>
             <h2>{item.title}</h2>
             {item.note ? <p>{item.note}</p> : null}
           </div>
-          {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a> : null}
-        </article>
+          <ExternalLink size={14} />
+        </button>
       ))}
+    </div>
+  );
+}
+
+function collectionMeta(item: PlannerCollectionItem) {
+  if (item.type === "purchase" && item.purchase?.price_amount !== null) {
+    return `${item.purchase?.price_amount ?? ""} ${item.purchase?.currency ?? "RUB"}`;
+  }
+  if (item.type === "birthday" && item.birthday?.birth_date) {
+    return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(`${item.birthday.birth_date}T12:00:00`));
+  }
+  if (item.type === "place" && item.place?.location) return item.place.location;
+  if (item.type === "learning") {
+    const labels: Record<string, string> = { saved: "Сохранено", in_progress: "Изучаю", completed: "Завершено" };
+    return labels[item.learning?.status ?? "saved"] ?? "Сохранено";
+  }
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(item.created_at));
+}
+
+function CollectionItemEditor({
+  type,
+  item,
+  isSaving,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  type: Exclude<CollectionItemType, "movie">;
+  item: PlannerCollectionItem | null;
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: (input: CollectionItemInput) => Promise<void>;
+  onDelete?: () => Promise<void>;
+}) {
+  const [title, setTitle] = React.useState(item?.title ?? "");
+  const [note, setNote] = React.useState(item?.note ?? "");
+  const [sourceUrl, setSourceUrl] = React.useState(item?.source_url ?? "");
+  const [imageUrl, setImageUrl] = React.useState(item?.image_url ?? "");
+  const [price, setPrice] = React.useState(item?.purchase?.price_amount?.toString() ?? "");
+  const [currency, setCurrency] = React.useState(item?.purchase?.currency ?? "RUB");
+  const [birthDate, setBirthDate] = React.useState(item?.birthday?.birth_date ?? "");
+  const [location, setLocation] = React.useState(item?.place?.location ?? "");
+  const [mapUrl, setMapUrl] = React.useState(item?.place?.map_url ?? "");
+  const [visited, setVisited] = React.useState(item?.place?.visited ?? false);
+  const [contentKind, setContentKind] = React.useState(item?.learning?.content_kind ?? "other");
+  const [contentStatus, setContentStatus] = React.useState(item?.learning?.status ?? "saved");
+  const [error, setError] = React.useState<string | null>(null);
+  const label = collectionTypes.find((entry) => entry.id === type)?.label ?? "Коллекция";
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) return setError(type === "birthday" ? "Введите имя." : "Введите название.");
+    if (type === "birthday" && !birthDate) return setError("Укажите дату рождения.");
+    setError(null);
+    try {
+      await onSave({
+        type, title, note, sourceUrl, imageUrl,
+        priceAmount: price ? Number(price) : null,
+        currency, birthDate: birthDate || null, location, mapUrl, visited,
+        contentKind, contentStatus,
+      });
+    } catch {
+      setError("Не удалось сохранить запись.");
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <form className="planner-modal movie-editor collection-item-editor" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-top"><span>{item ? label.toUpperCase() : `НОВАЯ ЗАПИСЬ · ${label.toUpperCase()}`}</span><button type="button" onClick={onClose} aria-label="Закрыть"><X size={18} /></button></div>
+        <div className="movie-editor-title"><h2>{item ? item.title : "Сохранить на потом."}</h2><LibraryIcon type={type} /></div>
+        <div className="movie-form-grid">
+          <label className="wide">{type === "birthday" ? "Имя" : "Название"}<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+          {type === "purchase" ? <><label>Цена<input type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>Валюта<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option>RUB</option><option>CNY</option><option>USD</option><option>EUR</option></select></label><label className="wide">Изображение<input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} /></label></> : null}
+          {type === "birthday" ? <label className="wide">Дата рождения<input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /><small className="field-hint">Событие повторяется ежегодно, напоминание — в этот же день.</small></label> : null}
+          {type === "place" ? <><label className="wide">Город или адрес<input value={location} onChange={(event) => setLocation(event.target.value)} /></label><label className="wide">Ссылка на карту<input type="url" value={mapUrl} onChange={(event) => setMapUrl(event.target.value)} /></label><label className="collection-checkbox"><input type="checkbox" checked={visited} onChange={(event) => setVisited(event.target.checked)} /> Уже посетил</label></> : null}
+          {type === "learning" ? <><label>Формат<select value={contentKind} onChange={(event) => setContentKind(event.target.value)}><option value="book">Книга</option><option value="article">Статья</option><option value="video">Видео</option><option value="course">Курс</option><option value="podcast">Подкаст</option><option value="other">Другое</option></select></label><label>Статус<select value={contentStatus} onChange={(event) => setContentStatus(event.target.value)}><option value="saved">Сохранено</option><option value="in_progress">Изучаю</option><option value="completed">Завершено</option></select></label></> : null}
+          {type !== "birthday" ? <label className="wide">Ссылка<input type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label> : null}
+          <label className="wide">Заметка<textarea value={note} onChange={(event) => setNote(event.target.value)} /></label>
+        </div>
+        {error ? <p className="modal-error">{error}</p> : null}
+        <div className="modal-footer">{onDelete ? <button className="delete-button" type="button" onClick={() => void onDelete()}><Trash2 size={15} /> Удалить</button> : null}<button className="complete-modal" disabled={isSaving} type="submit">{isSaving ? "Сохраняю…" : "Сохранить"}</button></div>
+      </form>
     </div>
   );
 }

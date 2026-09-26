@@ -25,6 +25,26 @@ export type PlannerCollectionItem = {
   source_url: string | null;
   image_url: string | null;
   created_at: string;
+  purchase: { price_amount: number | null; currency: string } | null;
+  birthday: { birth_date: string | null } | null;
+  place: { location: string | null; map_url: string | null; visited: boolean } | null;
+  learning: { content_kind: string; status: string } | null;
+};
+
+export type CollectionItemInput = {
+  type: Exclude<CollectionItemType, "movie">;
+  title: string;
+  note?: string;
+  sourceUrl?: string;
+  imageUrl?: string;
+  priceAmount?: number | null;
+  currency?: string;
+  birthDate?: string | null;
+  location?: string;
+  mapUrl?: string;
+  visited?: boolean;
+  contentKind?: string;
+  contentStatus?: string;
 };
 
 type MovieDetails = {
@@ -143,13 +163,15 @@ export function usePlannerCollectionItems(
   type: Exclude<CollectionItemType, "movie">,
   enabled = true
 ) {
+  const queryClient = useQueryClient();
   const { isConfigured, session } = useSupabaseSession();
-  return useQuery({
-    queryKey: ["planner", "collections", type, session?.user.id],
+  const key = ["planner", "collections", type, session?.user.id] as const;
+  const query = useQuery({
+    queryKey: key,
     queryFn: async () => {
       const { data, error } = await requireSupabase()
         .from("test_collection_items")
-        .select("id, type, title, note, source_url, image_url, created_at")
+        .select("id, type, title, note, source_url, image_url, created_at, purchase:test_collection_purchases(price_amount,currency), birthday:test_collection_birthdays(birth_date), place:test_collection_places(location,map_url,visited), learning:test_collection_learning(content_kind,status)")
         .eq("type", type)
         .order("created_at", { ascending: false })
         .returns<PlannerCollectionItem[]>();
@@ -159,6 +181,45 @@ export function usePlannerCollectionItems(
     enabled: enabled && isConfigured && Boolean(session?.user.id),
     staleTime: 30_000,
   });
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["planner", "collections"] });
+  const save = useMutation({
+    mutationFn: async ({ id, input }: { id?: string; input: CollectionItemInput }) => {
+      const { data, error } = await requireSupabase().rpc(
+        "test_save_collection_item",
+        {
+          p_item_id: id ?? null,
+          p_type: input.type,
+          p_title: input.title.trim(),
+          p_note: input.note?.trim() || null,
+          p_source_url: input.sourceUrl?.trim() || null,
+          p_image_url: input.imageUrl?.trim() || null,
+          p_price_amount: input.priceAmount ?? null,
+          p_currency: input.currency || "RUB",
+          p_birth_date: input.birthDate || null,
+          p_location: input.location?.trim() || null,
+          p_map_url: input.mapUrl?.trim() || null,
+          p_visited: input.visited ?? false,
+          p_content_kind: input.contentKind || "other",
+          p_content_status: input.contentStatus || "saved",
+        }
+      );
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await requireSupabase()
+        .from("test_collection_items")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+  return { ...query, save, remove };
 }
 
 export function usePlannerMovies() {

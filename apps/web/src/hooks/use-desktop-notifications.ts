@@ -23,6 +23,12 @@ type ReminderEvent = {
   notes: { status: "scheduled" | "held" | "cancelled" } | null;
 };
 
+type BirthdayReminderEvent = {
+  id: string;
+  title: string;
+  starts_at: string;
+};
+
 type ZonedNow = {
   date: string;
   year: number;
@@ -82,7 +88,8 @@ async function deliverOnce(input: {
     | "morning_review"
     | "evening_review"
     | "task_deadline"
-    | "lesson_reminder";
+    | "lesson_reminder"
+    | "birthday_reminder";
   scheduledFor: string;
   title: string;
   body: string;
@@ -188,16 +195,20 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
 
   const pastWindow = new Date(currentDate.getTime() - 15 * 60_000);
   const futureWindow = new Date(currentDate.getTime() + 65 * 60_000);
-  const { data: eventRows, error: eventError } = await client
-    .from("calendar_events")
-    .select(
-      "id, kind, title, starts_at, student:students(name), notes:lesson_notes(status)"
-    )
-    .in("kind", ["task", "lesson"])
-    .gte("starts_at", pastWindow.toISOString())
-    .lte("starts_at", futureWindow.toISOString())
-    .returns<ReminderEvent[]>();
-  if (eventError) throw eventError;
+  const [eventResult, birthdayResult] = await Promise.all([
+    client.from("calendar_events")
+      .select("id, kind, title, starts_at, student:students(name), notes:lesson_notes(status)")
+      .in("kind", ["task", "lesson"])
+      .gte("starts_at", pastWindow.toISOString()).lte("starts_at", futureWindow.toISOString())
+      .returns<ReminderEvent[]>(),
+    client.from("test_collection_calendar_events")
+      .select("id,title,starts_at")
+      .gte("starts_at", pastWindow.toISOString()).lte("starts_at", futureWindow.toISOString())
+      .returns<BirthdayReminderEvent[]>(),
+  ]);
+  if (eventResult.error) throw eventResult.error;
+  if (birthdayResult.error) throw birthdayResult.error;
+  const eventRows = eventResult.data;
 
   const taskEvents = eventRows.filter((event) => {
     if (event.kind !== "task") return false;
@@ -249,6 +260,17 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
         .map((event) => event.student?.name ?? event.title)
         .join(", "),
       metadata: { eventIds: events.map((event) => event.id) },
+    });
+  }
+
+  for (const event of birthdayResult.data) {
+    await deliverOnce({
+      userId,
+      kind: "birthday_reminder",
+      scheduledFor: event.starts_at,
+      title: "Сегодня день рождения",
+      body: event.title.replace(/^День рождения ·\s*/, ""),
+      metadata: { eventId: event.id },
     });
   }
 }

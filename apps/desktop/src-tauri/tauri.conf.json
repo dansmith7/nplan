@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "cd ../web && npx vite",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cd ../web && npx tsc && npx vite build && cd ../desktop && node scripts/prepare-frontend.mjs",
+    "beforeBuildCommand": "cd ../web && bun run typecheck && bun run vite build && cd ../desktop && node scripts/prepare-frontend.mjs",
     "frontendDist": "../dist"
   },
   "app": {

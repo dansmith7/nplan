@@ -970,6 +970,14 @@ function CalendarScreen({
   const [dragPreview, setDragPreview] = React.useState<PlannerEvent | null>(
     null
   );
+  const dragGesture = React.useRef<{
+    pointerId: number;
+    eventId: string;
+    startX: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
+  const suppressEventClick = React.useRef(false);
   const [editing, setEditing] = React.useState<PlannerEvent | null>(null);
   // Keep all seven days in the calendar. The API range already includes
   // Saturday and Sunday, but this view used to trim them away here, which
@@ -987,16 +995,17 @@ function CalendarScreen({
   ).format(dates[6]!)}`;
   const visibleEvents = events;
   const getPlacement = (
-    event: React.DragEvent<HTMLDivElement>,
+    clientY: number,
+    target: HTMLElement,
     day: number,
     source: PlannerEvent
   ): PlannerEvent => {
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const headerHeight = 44;
     const availableHeight = Math.max(1, rect.height - headerHeight);
     const offset = Math.min(
       availableHeight,
-      Math.max(0, event.clientY - rect.top - headerHeight)
+      Math.max(0, clientY - rect.top - headerHeight)
     );
     const halfHourSlot = Math.round((offset / availableHeight) * 18);
     const safeSlot = Math.min(17, Math.max(0, halfHourSlot));
@@ -1009,6 +1018,24 @@ function CalendarScreen({
       time: `${String(hour).padStart(2, "0")}:${minutes}`,
       top: 10 + (safeSlot / 17) * 79,
     };
+  };
+  const placementAtPointer = (
+    clientX: number,
+    clientY: number,
+    source: PlannerEvent
+  ) => {
+    const target = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>(".calendar-day[data-day-index]");
+    if (!target) return null;
+    const day = Number(target.dataset.dayIndex);
+    if (!Number.isInteger(day)) return null;
+    return getPlacement(clientY, target, day, source);
+  };
+  const clearDrag = () => {
+    dragGesture.current = null;
+    setDragged(null);
+    setDragPreview(null);
   };
   const createDraft = (): PlannerEvent => ({
     id: `new-${Date.now()}`,
@@ -1062,19 +1089,7 @@ function CalendarScreen({
           <div
             className={`calendar-day ${index === todayIndex ? "is-current" : ""}`}
             key={day}
-            onDragOver={(event) => {
-              event.preventDefault();
-              const source = visibleEvents.find((item) => item.id === dragged);
-              if (source) setDragPreview(getPlacement(event, index, source));
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              const source = visibleEvents.find((item) => item.id === dragged);
-              const next = source ? getPlacement(event, index, source) : null;
-              if (next) void onUpdate(next);
-              setDragged(null);
-              setDragPreview(null);
-            }}
+            data-day-index={index}
           >
             <header>{day}</header>
             {dragPreview && dragPreview.day === index ? (
@@ -1090,21 +1105,78 @@ function CalendarScreen({
               .filter((event) => event.day === index)
               .map((event) => (
                 <button
-                  draggable
                   key={event.id}
-                  onDragStart={() => {
-                    setDragged(event.id);
-                    setDragPreview(event);
+                  onPointerDown={(pointerEvent) => {
+                    if (pointerEvent.button !== 0) return;
+                    dragGesture.current = {
+                      pointerId: pointerEvent.pointerId,
+                      eventId: event.id,
+                      startX: pointerEvent.clientX,
+                      startY: pointerEvent.clientY,
+                      active: false,
+                    };
+                    pointerEvent.currentTarget.setPointerCapture(
+                      pointerEvent.pointerId
+                    );
                   }}
-                  onDragEnd={() => {
-                    setDragged(null);
-                    setDragPreview(null);
+                  onPointerMove={(pointerEvent) => {
+                    const gesture = dragGesture.current;
+                    if (
+                      !gesture ||
+                      gesture.pointerId !== pointerEvent.pointerId ||
+                      gesture.eventId !== event.id
+                    )
+                      return;
+                    const distance = Math.hypot(
+                      pointerEvent.clientX - gesture.startX,
+                      pointerEvent.clientY - gesture.startY
+                    );
+                    if (!gesture.active && distance < 5) return;
+                    if (!gesture.active) {
+                      gesture.active = true;
+                      setDragged(event.id);
+                    }
+                    pointerEvent.preventDefault();
+                    const next = placementAtPointer(
+                      pointerEvent.clientX,
+                      pointerEvent.clientY,
+                      event
+                    );
+                    if (next) setDragPreview(next);
                   }}
-                  onClick={() =>
+                  onPointerUp={(pointerEvent) => {
+                    const gesture = dragGesture.current;
+                    if (
+                      !gesture ||
+                      gesture.pointerId !== pointerEvent.pointerId ||
+                      gesture.eventId !== event.id
+                    )
+                      return;
+                    if (gesture.active) {
+                      pointerEvent.preventDefault();
+                      suppressEventClick.current = true;
+                      const next = placementAtPointer(
+                        pointerEvent.clientX,
+                        pointerEvent.clientY,
+                        event
+                      );
+                      if (next) void onUpdate(next);
+                      window.setTimeout(() => {
+                        suppressEventClick.current = false;
+                      }, 0);
+                    }
+                    clearDrag();
+                  }}
+                  onPointerCancel={clearDrag}
+                  onClick={(clickEvent) => {
+                    if (suppressEventClick.current) {
+                      clickEvent.preventDefault();
+                      return;
+                    }
                     event.kind === "lesson"
                       ? onLesson(event)
-                      : setEditing(event)
-                  }
+                      : setEditing(event);
+                  }}
                   style={{ top: `${event.top}%` }}
                   className={`calendar-event ${event.kind} ${
                     dragged === event.id ? "is-dragging" : ""

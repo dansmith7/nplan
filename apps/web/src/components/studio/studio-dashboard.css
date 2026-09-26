@@ -504,8 +504,8 @@ html.studio-shell-active.tauri-window #root {
   --line: #f4f1eb21;
   --today: #e8be61;
   --overdue: #f04d3b;
-  --motion-quick: 160ms;
-  --motion-enter: 240ms;
+  --motion-quick: 180ms;
+  --motion-enter: 276ms;
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 .planner-shell {
@@ -1051,6 +1051,8 @@ html.studio-shell-active.tauri-window #root {
   text-align: left;
   font: 600 11px/1.1 TTCommons;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
   transition:
     transform var(--motion-quick) var(--motion-ease-out),
     box-shadow var(--motion-quick) ease,
@@ -1733,7 +1735,7 @@ html.studio-shell-active.tauri-window #root {
   background: #000a;
   display: grid;
   place-items: center;
-  animation: planner-backdrop-in 180ms ease-out both;
+  animation: planner-backdrop-in 210ms ease-out both;
 }
 .planner-modal {
   width: min(480px, 100%);
@@ -1743,13 +1745,13 @@ html.studio-shell-active.tauri-window #root {
   color: var(--ink);
   box-shadow: 0 20px 70px #0008;
   transform-origin: 50% 46%;
-  animation: planner-modal-in 220ms var(--motion-ease-out) both;
+  animation: planner-modal-in 275ms var(--motion-ease-out) both;
 }
 
 @keyframes planner-view-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(7px);
   }
   to {
     opacity: 1;
@@ -1769,7 +1771,7 @@ html.studio-shell-active.tauri-window #root {
 @keyframes planner-modal-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.992);
+    transform: translateY(10px) scale(0.988);
   }
   to {
     opacity: 1;

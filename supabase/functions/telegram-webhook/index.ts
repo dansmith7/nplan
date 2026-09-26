@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enrichMovieFromText } from "./kinopoisk.ts";
 
 type TelegramUpdate = {
   update_id: number;
@@ -97,8 +98,15 @@ Deno.serve(async (request) => {
   if (!owner) throw new Error("Planner owner was not found");
 
   const firstLine = text.split(/\r?\n/, 1)[0]?.trim() || text;
-  const title = firstLine.slice(0, 500);
+  const movie = await enrichMovieFromText(text);
+  const title = (movie?.title ?? firstLine).slice(0, 500);
   const externalId = `${message.chat.id}:${message.message_id}`;
+  const telegramMetadata = {
+    telegram_chat_id: message.chat.id,
+    telegram_message_id: message.message_id,
+    telegram_user_id: message.from?.id ?? null,
+    telegram_username: message.from?.username ?? null,
+  };
   const { error: insertError } = await supabase.from("inbox_items").upsert(
     {
       user_id: owner.id,
@@ -108,12 +116,13 @@ Deno.serve(async (request) => {
       raw_text: text,
       received_at: new Date().toISOString(),
       status: "new",
-      metadata: {
-        telegram_chat_id: message.chat.id,
-        telegram_message_id: message.message_id,
-        telegram_user_id: message.from?.id ?? null,
-        telegram_username: message.from?.username ?? null,
-      },
+      metadata: movie
+        ? {
+            ...telegramMetadata,
+            classification: "movie",
+            movie,
+          }
+        : telegramMetadata,
     },
     {
       onConflict: "user_id,source,external_id",
@@ -122,9 +131,24 @@ Deno.serve(async (request) => {
   );
   if (insertError) throw insertError;
 
+  const movieDetails = movie
+    ? [
+        movie.year ? String(movie.year) : null,
+        movie.directors.length ? movie.directors.join(", ") : null,
+        movie.ratingKinopoisk ? `КП ${movie.ratingKinopoisk}` : null,
+        movie.ratingImdb ? `IMDb ${movie.ratingImdb}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+
   await sendTelegramMessage(
     message.chat.id,
-    `Добавил во входящие NPlan: «${title}»`
+    movie
+      ? `Добавил фильм во входящие NPlan: «${title}»${
+          movieDetails ? `\n${movieDetails}` : ""
+        }`
+      : `Добавил во входящие NPlan: «${title}»`
   );
   return json({ ok: true });
 });

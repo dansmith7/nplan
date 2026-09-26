@@ -6,6 +6,21 @@ type KinopoiskSearchFilm = {
   nameOriginal?: string;
   year?: string;
   type?: string;
+  posterUrl?: string;
+  posterUrlPreview?: string;
+  rating?: string;
+  genres?: Array<{ genre?: string }>;
+};
+
+export type KinopoiskSearchResult = {
+  kinopoiskId: number;
+  title: string;
+  originalTitle: string | null;
+  year: number | null;
+  posterUrl: string | null;
+  ratingKinopoisk: number | null;
+  genres: string[];
+  sourceUrl: string;
 };
 
 type KinopoiskFilm = {
@@ -54,6 +69,41 @@ const KINOPOISK_API_BASE = "https://kinopoiskapiunofficial.tech/api";
 const KINOPOISK_ID_RE = /kinopoisk\.ru\/film\/(\d+)/i;
 const MOVIE_HINT_RE =
   /(kinopoisk|кинопоиск|imdb|фильм|кино|сериал|посмотреть|смотреть|watch)/i;
+
+export async function searchKinopoiskMovies(
+  query: string
+): Promise<KinopoiskSearchResult[]> {
+  const apiKey = Deno.env.get("KINOPOISK_API_KEY");
+  const normalizedQuery = normalizeMovieQuery(query);
+  if (!apiKey) throw new Error("KINOPOISK_API_KEY is not configured");
+  if (!normalizedQuery) return [];
+
+  const searchUrl = new URL(`${KINOPOISK_API_BASE}/v2.1/films/search-by-keyword`);
+  searchUrl.searchParams.set("keyword", normalizedQuery);
+  searchUrl.searchParams.set("page", "1");
+  const result = await fetchKinopoisk<{ films?: KinopoiskSearchFilm[] }>(
+    apiKey,
+    searchUrl
+  );
+
+  return (result?.films ?? []).slice(0, 7).flatMap((film) => {
+    const kinopoiskId = film.filmId ?? film.kinopoiskId;
+    const title = film.nameRu || film.nameOriginal || film.nameEn;
+    if (!kinopoiskId || !title) return [];
+    const rating = film.rating ? Number.parseFloat(film.rating) : Number.NaN;
+    const year = film.year?.match(/\d{4}/)?.[0];
+    return [{
+      kinopoiskId,
+      title,
+      originalTitle: film.nameOriginal || film.nameEn || null,
+      year: year ? Number(year) : null,
+      posterUrl: film.posterUrl || film.posterUrlPreview || null,
+      ratingKinopoisk: Number.isFinite(rating) ? rating : null,
+      genres: (film.genres ?? []).map((item) => item.genre).filter(Boolean) as string[],
+      sourceUrl: `https://www.kinopoisk.ru/film/${kinopoiskId}/`,
+    }];
+  });
+}
 
 export async function enrichMovieFromText(
   text: string

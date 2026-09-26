@@ -16,6 +16,7 @@ type MovieDetails = {
   genres: string[];
   director: string | null;
   external_rating: number | null;
+  kinopoisk_id: number | null;
   watch_provider: string | null;
   trailer_url: string | null;
   recommended_by: string | null;
@@ -47,6 +48,19 @@ export type MovieInput = {
   note?: string;
   recommendedBy?: string;
   status: MovieStatus;
+  externalRating?: number | null;
+  kinopoiskId?: number | null;
+};
+
+export type KinopoiskMovieResult = {
+  kinopoiskId: number;
+  title: string;
+  originalTitle: string | null;
+  year: number | null;
+  posterUrl: string | null;
+  ratingKinopoisk: number | null;
+  genres: string[];
+  sourceUrl: string;
 };
 
 type MovieQueryRow = Omit<PlannerMovie, "movie"> & {
@@ -60,7 +74,7 @@ async function getMovies(): Promise<PlannerMovie[]> {
   const { data, error } = await requireSupabase()
     .from("test_collection_items")
     .select(
-      "id, title, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:test_collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, watch_provider, trailer_url, recommended_by, personal_rating, status)"
+      "id, title, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:test_collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, kinopoisk_id, watch_provider, trailer_url, recommended_by, personal_rating, status)"
     )
     .eq("type", "movie")
     .order("created_at", { ascending: false })
@@ -84,7 +98,28 @@ const rpcInput = (input: MovieInput) => ({
   p_note: input.note?.trim() || null,
   p_recommended_by: input.recommendedBy?.trim() || null,
   p_status: input.status,
+  p_external_rating: input.externalRating ?? null,
+  p_kinopoisk_id: input.kinopoiskId ?? null,
 });
+
+async function searchKinopoisk(query: string): Promise<KinopoiskMovieResult[]> {
+  const { data, error } = await requireSupabase().functions.invoke(
+    "test-kinopoisk-search",
+    { body: { query } }
+  );
+  if (error) throw error;
+  return (data?.results ?? []) as KinopoiskMovieResult[];
+}
+
+export function useKinopoiskMovieSearch(query: string, enabled = true) {
+  return useQuery({
+    queryKey: ["kinopoisk", "movie-search", query.trim().toLocaleLowerCase("ru-RU")],
+    queryFn: () => searchKinopoisk(query.trim()),
+    enabled: enabled && query.trim().length >= 2,
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
+}
 
 export function usePlannerMovies() {
   const queryClient = useQueryClient();

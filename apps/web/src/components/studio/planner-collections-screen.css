@@ -286,6 +286,120 @@
   color: var(--ink);
   font: 400 13px TTCommons;
 }
+.kinopoisk-title-input {
+  position: relative;
+  margin-top: 6px;
+}
+.kinopoisk-title-input input {
+  margin-top: 0 !important;
+  padding-right: 36px !important;
+}
+.kinopoisk-spinner {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: #827d74;
+  animation: kinopoisk-spin 0.8s linear infinite;
+  transform: translateY(-50%);
+}
+.kinopoisk-results {
+  margin-top: 7px;
+  overflow: hidden;
+  border: 1px solid #cbc5ba;
+  border-radius: 7px;
+  background: #fffdfa;
+  box-shadow: 0 14px 32px #17130d1a;
+}
+.kinopoisk-results > button {
+  width: 100%;
+  min-height: 58px;
+  padding: 7px 9px;
+  border: 0;
+  border-bottom: 1px solid #ded8ce;
+  background: transparent;
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+.kinopoisk-results > button:last-child {
+  border-bottom: 0;
+}
+.kinopoisk-results > button:hover,
+.kinopoisk-results > button:focus-visible {
+  background: #eeeae2;
+  outline: 0;
+}
+.kinopoisk-result-poster {
+  width: 32px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #e5e0d6;
+  color: #918b81;
+  display: grid;
+  place-items: center;
+}
+.kinopoisk-result-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.kinopoisk-results strong,
+.kinopoisk-results small {
+  display: block;
+}
+.kinopoisk-results strong {
+  font: 600 12px/1.15 TTCommons;
+}
+.kinopoisk-results small {
+  margin-top: 3px;
+  color: #7e786f;
+  font: 400 10px/1.1 TTCommons;
+}
+.kinopoisk-results b,
+.kinopoisk-selected b {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #7d621e;
+  font: 600 10px TTCommons;
+}
+.kinopoisk-selected {
+  min-height: 30px;
+  margin-top: 7px;
+  padding: 0 9px;
+  border-radius: 5px;
+  background: #e8be6124;
+  color: #655938;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 10px TTCommons;
+}
+.kinopoisk-selected button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #655938;
+  font: 600 10px TTCommons;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.kinopoisk-error {
+  margin-top: 7px;
+  color: #a14d42;
+  display: block;
+  font: 400 10px/1.25 TTCommons;
+}
+@keyframes kinopoisk-spin {
+  from { transform: translateY(-50%) rotate(0); }
+  to { transform: translateY(-50%) rotate(360deg); }
+}
 @media (max-width: 920px) {
   .movie-toolbar {
     align-items: stretch;

@@ -5,10 +5,12 @@ import {
   ExternalLink,
   Film,
   Lightbulb,
+  LoaderCircle,
   MapPin,
   Plus,
   Search,
   ShoppingBag,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -16,6 +18,7 @@ import {
   type MovieInput,
   type MovieStatus,
   type PlannerMovie,
+  useKinopoiskMovieSearch,
   usePlannerMovies,
 } from "@/hooks/use-planner-movies";
 import "./planner-collections-screen.css";
@@ -260,7 +263,31 @@ function MovieEditor({
   const [status, setStatus] = React.useState<MovieStatus>(
     movie?.movie.status ?? "want_to_watch"
   );
+  const [externalRating, setExternalRating] = React.useState<number | null>(
+    movie?.movie.external_rating ?? null
+  );
+  const [kinopoiskId, setKinopoiskId] = React.useState<number | null>(
+    movie?.movie.kinopoisk_id ?? null
+  );
   const [error, setError] = React.useState<string | null>(null);
+  const deferredTitle = React.useDeferredValue(title);
+  const kinopoisk = useKinopoiskMovieSearch(
+    deferredTitle,
+    !movie && kinopoiskId === null
+  );
+
+  const selectKinopoiskMovie = (
+    result: NonNullable<typeof kinopoisk.data>[number]
+  ) => {
+    setTitle(result.title);
+    setOriginalTitle(result.originalTitle ?? "");
+    setReleaseYear(result.year?.toString() ?? "");
+    setGenres(result.genres.join(", "));
+    setImageUrl(result.posterUrl ?? "");
+    setSourceUrl(result.sourceUrl);
+    setExternalRating(result.ratingKinopoisk);
+    setKinopoiskId(result.kinopoiskId);
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -282,6 +309,8 @@ function MovieEditor({
         recommendedBy,
         note,
         status,
+        externalRating,
+        kinopoiskId,
       });
     } catch {
       setError("Не удалось сохранить фильм.");
@@ -314,8 +343,62 @@ function MovieEditor({
         </div>
         <div className="movie-form-grid">
           <label className="wide">
-            Название
-            <input value={title} onChange={(event) => setTitle(event.target.value)} />
+            {movie ? "Название" : "Название — найдём на Кинопоиске"}
+            <div className="kinopoisk-title-input">
+              <input
+                value={title}
+                autoComplete="off"
+                placeholder={movie ? undefined : "Например, Идеальные дни"}
+                onChange={(event) => {
+                  setTitle(event.target.value);
+                  if (!movie) {
+                    setKinopoiskId(null);
+                    setExternalRating(null);
+                  }
+                }}
+              />
+              {!movie && kinopoisk.isFetching ? (
+                <LoaderCircle className="kinopoisk-spinner" size={15} />
+              ) : null}
+            </div>
+            {!movie && kinopoiskId !== null ? (
+              <div className="kinopoisk-selected">
+                <span>Найдено на Кинопоиске</span>
+                {externalRating !== null ? (
+                  <b><Star size={11} fill="currentColor" /> {externalRating}</b>
+                ) : null}
+                <button type="button" onClick={() => setKinopoiskId(null)}>
+                  Выбрать другой
+                </button>
+              </div>
+            ) : null}
+            {!movie && kinopoiskId === null && kinopoisk.data?.length ? (
+              <div className="kinopoisk-results" aria-label="Результаты Кинопоиска">
+                {kinopoisk.data.map((result) => (
+                  <button
+                    key={result.kinopoiskId}
+                    type="button"
+                    onClick={() => selectKinopoiskMovie(result)}
+                  >
+                    <span className="kinopoisk-result-poster">
+                      {result.posterUrl ? <img src={result.posterUrl} alt="" /> : <Film size={15} />}
+                    </span>
+                    <span>
+                      <strong>{result.title}</strong>
+                      <small>{[result.originalTitle, result.year].filter(Boolean).join(" · ")}</small>
+                    </span>
+                    {result.ratingKinopoisk !== null ? (
+                      <b><Star size={10} fill="currentColor" /> {result.ratingKinopoisk}</b>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {!movie && kinopoiskId === null && kinopoisk.isError ? (
+              <small className="kinopoisk-error">
+                Поиск Кинопоиска пока недоступен. Фильм можно заполнить вручную.
+              </small>
+            ) : null}
           </label>
           <label className="wide">
             Оригинальное название

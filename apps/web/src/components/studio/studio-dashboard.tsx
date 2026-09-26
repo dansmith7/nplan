@@ -490,6 +490,8 @@ export function StudioDashboard() {
                 calendarEvents={calendarEvents}
                 calendarWeekStart={calendarWeekStart}
                 inboxItems={plannerInbox.data ?? []}
+                inboxIsLoading={plannerInbox.isLoading}
+                inboxIsError={plannerInbox.isError}
                 pendingLessons={pendingLessons.data ?? []}
                 onConfirmLesson={(eventId, status) =>
                   lessonConfirmation.setStatus.mutateAsync({ eventId, status })
@@ -599,6 +601,8 @@ function PlannerScreen({
   calendarEvents,
   calendarWeekStart,
   inboxItems,
+  inboxIsLoading,
+  inboxIsError,
   pendingLessons,
   onConfirmLesson,
   onComplete,
@@ -610,6 +614,8 @@ function PlannerScreen({
   calendarEvents: PlannerEvent[];
   calendarWeekStart: Date;
   inboxItems: PlannerInboxRow[];
+  inboxIsLoading: boolean;
+  inboxIsError: boolean;
   pendingLessons: PlannerLessonRow[];
   onConfirmLesson: (
     eventId: string,
@@ -655,6 +661,8 @@ function PlannerScreen({
       <TaskHorizon
         tasks={tasks}
         inboxItems={inboxItems}
+        inboxIsLoading={inboxIsLoading}
+        inboxIsError={inboxIsError}
         onOpen={onOpen}
         onOpenInbox={() => onNavigate("inbox")}
       />
@@ -714,11 +722,15 @@ function PlannerScreen({
 function TaskHorizon({
   tasks,
   inboxItems,
+  inboxIsLoading,
+  inboxIsError,
   onOpen,
   onOpenInbox,
 }: {
   tasks: Task[];
   inboxItems: PlannerInboxRow[];
+  inboxIsLoading: boolean;
+  inboxIsError: boolean;
   onOpen: (task: Task) => void;
   onOpenInbox: () => void;
 }) {
@@ -755,9 +767,12 @@ function TaskHorizon({
           tasks={future}
           onOpen={onOpen}
         />
-        {inboxItems.length ? (
-          <InboxReviewPanel items={inboxItems} onOpen={onOpenInbox} />
-        ) : null}
+        <InboxReviewPanel
+          items={inboxItems}
+          isLoading={inboxIsLoading}
+          isError={inboxIsError}
+          onOpen={onOpenInbox}
+        />
       </div>
     </section>
   );
@@ -765,9 +780,13 @@ function TaskHorizon({
 
 function InboxReviewPanel({
   items,
+  isLoading,
+  isError,
   onOpen,
 }: {
   items: PlannerInboxRow[];
+  isLoading: boolean;
+  isError: boolean;
   onOpen: () => void;
 }) {
   return (
@@ -775,6 +794,22 @@ function InboxReviewPanel({
       <span>ВХОДЯЩИЕ · {items.length}</span>
       <h2>Разобрать входящие</h2>
       <div className="review-task-list">
+        {isLoading ? (
+          <div className="review-panel-state">Загружаю входящие…</div>
+        ) : null}
+        {isError ? (
+          <button onClick={onOpen}>
+            <b>Не удалось загрузить</b>
+            <small>Открыть раздел и повторить</small>
+            <ChevronRight size={14} />
+          </button>
+        ) : null}
+        {!isLoading && !isError && items.length === 0 ? (
+          <div className="review-panel-state">
+            <b>Входящие разобраны</b>
+            <small>Новые задачи из Telegram и почты появятся здесь</small>
+          </div>
+        ) : null}
         {items.slice(0, 2).map((item) => (
           <button key={item.id} onClick={onOpen}>
             <b>{item.title}</b>
@@ -782,11 +817,13 @@ function InboxReviewPanel({
             <ChevronRight size={14} />
           </button>
         ))}
-        <button onClick={onOpen}>
-          <b>Открыть все входящие</b>
-          <small>Разобрать сейчас</small>
-          <ChevronRight size={14} />
-        </button>
+        {!isLoading && !isError && items.length ? (
+          <button onClick={onOpen}>
+            <b>Открыть все входящие</b>
+            <small>Разобрать сейчас</small>
+            <ChevronRight size={14} />
+          </button>
+        ) : null}
       </div>
     </section>
   );

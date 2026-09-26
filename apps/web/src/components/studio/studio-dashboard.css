@@ -1002,7 +1002,7 @@ html.studio-shell-active.tauri-window #root {
   height: 500px;
   position: relative;
   display: grid;
-  grid-template-columns: 53px repeat(5, minmax(140px, 1fr));
+  grid-template-columns: 53px repeat(7, minmax(112px, 1fr));
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 17px 38px #0004;
@@ -1179,7 +1179,7 @@ html.studio-shell-active.tauri-window #root {
 }
 .task-horizon-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: var(--space-2);
   margin-top: var(--space-4);
 }
@@ -1350,9 +1350,15 @@ html.studio-shell-active.tauri-window #root {
   border-color: transparent;
   color: var(--ink);
 }
+.review-panel.inbox {
+  background: #c8d8dc;
+  border-color: transparent;
+  color: #18323a;
+}
 .review-panel.overdue > span,
 .review-panel.today > span,
-.review-panel.future > span {
+.review-panel.future > span,
+.review-panel.inbox > span {
   color: currentColor;
   opacity: 0.62;
 }
@@ -2010,7 +2016,7 @@ html.studio-shell-active.tauri-window #root {
     margin-right: -20px;
   }
   .calendar-board {
-    width: 790px;
+    width: 900px;
   }
   .calendar-screen {
     overflow-x: auto;

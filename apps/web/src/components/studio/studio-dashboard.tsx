@@ -652,7 +652,12 @@ function PlannerScreen({
         weekStart={calendarWeekStart}
         onOpen={() => onNavigate("calendar")}
       />
-      <TaskHorizon tasks={tasks} onOpen={onOpen} />
+      <TaskHorizon
+        tasks={tasks}
+        inboxItems={inboxItems}
+        onOpen={onOpen}
+        onOpenInbox={() => onNavigate("inbox")}
+      />
       {!isEveningReview ? (
         <div className="planner-dashboard-review">
           <MorningReviewScreen
@@ -708,10 +713,14 @@ function PlannerScreen({
 
 function TaskHorizon({
   tasks,
+  inboxItems,
   onOpen,
+  onOpenInbox,
 }: {
   tasks: Task[];
+  inboxItems: PlannerInboxRow[];
   onOpen: (task: Task) => void;
+  onOpenInbox: () => void;
 }) {
   const active = tasks.filter((task) => !task.done);
   const overdue = active.filter((task) => task.due === "overdue");
@@ -746,6 +755,38 @@ function TaskHorizon({
           tasks={future}
           onOpen={onOpen}
         />
+        {inboxItems.length ? (
+          <InboxReviewPanel items={inboxItems} onOpen={onOpenInbox} />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function InboxReviewPanel({
+  items,
+  onOpen,
+}: {
+  items: PlannerInboxRow[];
+  onOpen: () => void;
+}) {
+  return (
+    <section className="review-panel inbox">
+      <span>ВХОДЯЩИЕ · {items.length}</span>
+      <h2>Разобрать входящие</h2>
+      <div className="review-task-list">
+        {items.slice(0, 2).map((item) => (
+          <button key={item.id} onClick={onOpen}>
+            <b>{item.title}</b>
+            <small>{item.source === "telegram" ? "Telegram" : "Почта"}</small>
+            <ChevronRight size={14} />
+          </button>
+        ))}
+        <button onClick={onOpen}>
+          <b>Открыть все входящие</b>
+          <small>Разобрать сейчас</small>
+          <ChevronRight size={14} />
+        </button>
       </div>
     </section>
   );
@@ -893,18 +934,21 @@ function CalendarScreen({
     null
   );
   const [editing, setEditing] = React.useState<PlannerEvent | null>(null);
-  const dates = weekDayDates(weekStart).slice(0, 5);
+  // Keep all seven days in the calendar. The API range already includes
+  // Saturday and Sunday, but this view used to trim them away here, which
+  // also made weekend dates unavailable in the event editor.
+  const dates = weekDayDates(weekStart);
   const todayKey = localDateKey(new Date());
   const todayIndex = dates.findIndex((date) => localDateKey(date) === todayKey);
   const days = dates.map(
     (date) =>
       `${new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date)}, ${date.getDate()}`
   );
-  const rangeLabel = `${dates[0]!.getDate()}—${dates[4]!.getDate()} ${new Intl.DateTimeFormat(
+  const rangeLabel = `${dates[0]!.getDate()}—${dates[6]!.getDate()} ${new Intl.DateTimeFormat(
     "ru-RU",
     { month: "long" }
-  ).format(dates[4]!)}`;
-  const visibleEvents = events.filter((event) => event.day < 5);
+  ).format(dates[6]!)}`;
+  const visibleEvents = events;
   const getPlacement = (
     event: React.DragEvent<HTMLDivElement>,
     day: number,
@@ -2013,7 +2057,7 @@ function NotificationSettingsModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <b>17:50</b>
-              <span>Закрыть день</span>
+              <span>Закрыть день и разобрать входящие</span>
             </div>
             <div>
               <b>−1 час</b>

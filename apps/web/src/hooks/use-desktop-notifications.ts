@@ -124,11 +124,20 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
   const morning = timeToMinutes(profile.morning_review_time);
   const evening = timeToMinutes(profile.evening_review_time);
 
-  const { data: taskRows, error: taskError } = await client
+  const taskQuery = client
     .from("tasks")
     .select("id, title, due_date")
     .eq("status", "in_progress")
     .returns<ActiveTask[]>();
+  // Start the independent inbox count at the same time as the task query.
+  const inboxQuery =
+    now.minutes >= evening
+      ? client
+          .from("inbox_items")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "new")
+      : null;
+  const { data: taskRows, error: taskError } = await taskQuery;
   if (taskError) throw taskError;
 
   const overdue = taskRows.filter(
@@ -149,15 +158,31 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
   }
 
   if (now.minutes >= evening) {
+    // Inbox is checked only for the evening review. This keeps the regular
+    // minute-by-minute reminder loop light while making stale incoming items
+    // visible before the workday ends.
+    const { count: inboxCount, error: inboxError } = await inboxQuery!;
+    if (inboxError) throw inboxError;
+
+    const remainingInbox = inboxCount ?? 0;
+    const summary = [
+      today ? `На сегодня осталось задач: ${today}` : null,
+      remainingInbox ? `Входящих ждёт разбора: ${remainingInbox}` : null,
+    ].filter(Boolean);
+
     await deliverOnce({
       userId,
       kind: "evening_review",
       scheduledFor: marker,
       title: "Пора закрыть день",
-      body: today
-        ? `На сегодня осталось задач: ${today}`
-        : "Все задачи на сегодня закрыты.",
-      metadata: { remainingToday: today, localDate: now.date },
+      body: summary.length
+        ? `${summary.join(" · ")}.`
+        : "Все задачи на сегодня закрыты, входящие разобраны.",
+      metadata: {
+        remainingToday: today,
+        remainingInbox,
+        localDate: now.date,
+      },
     });
   }
 

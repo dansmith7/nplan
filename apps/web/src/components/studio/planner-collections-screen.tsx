@@ -15,10 +15,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  type CollectionItemType,
   type MovieInput,
   type MovieStatus,
   type PlannerMovie,
   useKinopoiskMovieSearch,
+  usePlannerCollectionItems,
   usePlannerMovies,
 } from "@/hooks/use-planner-movies";
 import "./planner-collections-screen.css";
@@ -31,19 +33,38 @@ const movieStatuses: Array<{ id: MovieStatus; label: string }> = [
 ];
 
 const collectionTypes = [
-  { id: "movies", label: "Фильмы", icon: Film, active: true },
-  { id: "purchases", label: "Покупки", icon: ShoppingBag, active: false },
-  { id: "birthdays", label: "Дни рождения", icon: Cake, active: false },
-  { id: "places", label: "Места", icon: MapPin, active: false },
-  { id: "learning", label: "Изучить", icon: BookOpen, active: false },
-  { id: "ideas", label: "Идеи", icon: Lightbulb, active: false },
+  { id: "movie", label: "Фильмы", icon: Film },
+  { id: "purchase", label: "Покупки", icon: ShoppingBag },
+  { id: "birthday", label: "Дни рождения", icon: Cake },
+  { id: "place", label: "Места", icon: MapPin },
+  { id: "learning", label: "Изучить", icon: BookOpen },
+  { id: "idea", label: "Идеи", icon: Lightbulb },
 ] as const;
+
+const collectionEmptyCopy: Record<Exclude<CollectionItemType, "movie">, string> = {
+  purchase: "Здесь появятся покупки, которые хочется обдумать.",
+  birthday: "Сохраняйте дни рождения, чтобы позже поставить напоминание.",
+  place: "Места, в которые хочется однажды попасть.",
+  learning: "Книги, статьи, видео и курсы — без превращения в задачу.",
+  idea: "Мысли, которые пока не требуют действия.",
+};
 
 const statusLabel = (status: MovieStatus) =>
   movieStatuses.find((item) => item.id === status)?.label ?? status;
 
-export function PlannerCollectionsScreen() {
+export function PlannerCollectionsScreen({
+  initialType = "movie",
+}: {
+  initialType?: CollectionItemType;
+}) {
+  const [activeType, setActiveType] =
+    React.useState<CollectionItemType>(initialType);
   const movies = usePlannerMovies();
+  const genericType = activeType === "movie" ? "idea" : activeType;
+  const genericItems = usePlannerCollectionItems(
+    genericType,
+    activeType !== "movie"
+  );
   const [query, setQuery] = React.useState("");
   const [status, setStatus] = React.useState<MovieStatus | "all">("all");
   const [editing, setEditing] = React.useState<PlannerMovie | "new" | null>(
@@ -71,9 +92,13 @@ export function PlannerCollectionsScreen() {
           <span>ЛИЧНАЯ БИБЛИОТЕКА</span>
           <h1>Коллекции.</h1>
         </div>
-        <button className="collections-add" onClick={() => setEditing("new")}>
-          <Plus size={16} /> Добавить фильм
-        </button>
+        {activeType === "movie" ? (
+          <button className="collections-add" onClick={() => setEditing("new")}>
+            <Plus size={16} /> Добавить фильм
+          </button>
+        ) : (
+          <span className="collections-from-inbox">ДОБАВЛЯЕТСЯ ИЗ ВХОДЯЩИХ</span>
+        )}
       </div>
 
       <nav className="collection-type-nav" aria-label="Типы коллекций">
@@ -82,19 +107,18 @@ export function PlannerCollectionsScreen() {
           return (
             <button
               key={item.id}
-              className={item.active ? "active" : ""}
-              disabled={!item.active}
-              title={item.active ? item.label : `${item.label} — скоро`}
+              className={activeType === item.id ? "active" : ""}
+              onClick={() => setActiveType(item.id)}
+              title={item.label}
             >
               <Icon size={15} strokeWidth={1.7} />
               <span>{item.label}</span>
-              {!item.active ? <small>СКОРО</small> : null}
             </button>
           );
         })}
       </nav>
 
-      <div className="movie-toolbar">
+      {activeType === "movie" ? <><div className="movie-toolbar">
         <label>
           <Search size={15} />
           <input
@@ -162,6 +186,14 @@ export function PlannerCollectionsScreen() {
           ) : null}
         </div>
       ) : null}
+      </> : (
+        <GenericCollection
+          type={genericType}
+          items={genericItems.data ?? []}
+          isLoading={genericItems.isLoading}
+          isError={genericItems.isError}
+        />
+      )}
 
       {editing ? (
         <MovieEditor
@@ -186,6 +218,48 @@ export function PlannerCollectionsScreen() {
       ) : null}
     </section>
   );
+}
+
+function GenericCollection({
+  type,
+  items,
+  isLoading,
+  isError,
+}: {
+  type: Exclude<CollectionItemType, "movie">;
+  items: Array<{
+    id: string;
+    title: string;
+    note: string | null;
+    source_url: string | null;
+    created_at: string;
+  }>;
+  isLoading: boolean;
+  isError: boolean;
+}) {
+  if (isLoading) return <div className="collection-empty"><LoaderCircle className="generic-loader" size={20} /><h2>Собираю коллекцию…</h2></div>;
+  if (isError) return <div className="collection-empty collection-error"><h2>Коллекция пока недоступна.</h2></div>;
+  if (!items.length) return <div className="collection-empty"><LibraryIcon type={type} /><h2>Пока пусто.</h2><p>{collectionEmptyCopy[type]}</p></div>;
+  return (
+    <div className="generic-collection-list">
+      {items.map((item) => (
+        <article key={item.id}>
+          <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
+          <div>
+            <span>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(item.created_at))}</span>
+            <h2>{item.title}</h2>
+            {item.note ? <p>{item.note}</p> : null}
+          </div>
+          {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /></a> : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function LibraryIcon({ type }: { type: Exclude<CollectionItemType, "movie"> }) {
+  const Icon = collectionTypes.find((item) => item.id === type)?.icon ?? Lightbulb;
+  return <Icon size={19} strokeWidth={1.6} />;
 }
 
 function MovieCard({ movie, onOpen }: { movie: PlannerMovie; onOpen: () => void }) {
@@ -273,7 +347,7 @@ function MovieEditor({
   const deferredTitle = React.useDeferredValue(title);
   const kinopoisk = useKinopoiskMovieSearch(
     deferredTitle,
-    !movie && kinopoiskId === null
+    kinopoiskId === null
   );
 
   const selectKinopoiskMovie = (
@@ -343,25 +417,23 @@ function MovieEditor({
         </div>
         <div className="movie-form-grid">
           <label className="wide">
-            {movie ? "Название" : "Название — найдём на Кинопоиске"}
+            {kinopoiskId !== null ? "Название" : "Название — найдём на Кинопоиске"}
             <div className="kinopoisk-title-input">
               <input
                 value={title}
                 autoComplete="off"
-                placeholder={movie ? undefined : "Например, Идеальные дни"}
+                placeholder="Например, Идеальные дни"
                 onChange={(event) => {
                   setTitle(event.target.value);
-                  if (!movie) {
-                    setKinopoiskId(null);
-                    setExternalRating(null);
-                  }
+                  setKinopoiskId(null);
+                  setExternalRating(null);
                 }}
               />
-              {!movie && kinopoisk.isFetching ? (
+              {kinopoiskId === null && kinopoisk.isFetching ? (
                 <LoaderCircle className="kinopoisk-spinner" size={15} />
               ) : null}
             </div>
-            {!movie && kinopoiskId !== null ? (
+            {kinopoiskId !== null ? (
               <div className="kinopoisk-selected">
                 <span>Найдено на Кинопоиске</span>
                 {externalRating !== null ? (
@@ -372,7 +444,7 @@ function MovieEditor({
                 </button>
               </div>
             ) : null}
-            {!movie && kinopoiskId === null && kinopoisk.data?.length ? (
+            {kinopoiskId === null && kinopoisk.data?.length ? (
               <div className="kinopoisk-results" aria-label="Результаты Кинопоиска">
                 {kinopoisk.data.map((result) => (
                   <button
@@ -394,7 +466,7 @@ function MovieEditor({
                 ))}
               </div>
             ) : null}
-            {!movie && kinopoiskId === null && kinopoisk.isError ? (
+            {kinopoiskId === null && kinopoisk.isError ? (
               <small className="kinopoisk-error">
                 Поиск Кинопоиска пока недоступен. Фильм можно заполнить вручную.
               </small>

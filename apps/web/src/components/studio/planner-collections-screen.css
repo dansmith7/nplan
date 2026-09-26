@@ -34,6 +34,12 @@
   gap: 7px;
   cursor: pointer;
 }
+.collections-from-inbox {
+  padding-bottom: 4px;
+  color: #747068;
+  font: 600 9px TTCommons;
+  letter-spacing: .12em;
+}
 .collection-type-nav {
   margin-top: 38px;
   padding-bottom: 12px;
@@ -241,6 +247,69 @@
 .collection-error {
   color: #bd7569;
 }
+.generic-loader {
+  animation: generic-spin .85s linear infinite;
+}
+.generic-collection-list {
+  display: grid;
+  gap: 8px;
+}
+.generic-collection-list article {
+  min-height: 92px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  transition: transform var(--motion-quick) var(--motion-ease-out), border-color var(--motion-quick) ease;
+}
+.generic-collection-list article:hover {
+  transform: translateY(-1px);
+  border-color: #f4f1eb2b;
+}
+.generic-collection-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e8be6110;
+  color: var(--today);
+  display: grid;
+  place-items: center;
+}
+.generic-collection-list span {
+  color: #767168;
+  font: 600 9px TTCommons;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.generic-collection-list h2 {
+  margin: 4px 0 0;
+  color: var(--paper);
+  font: 600 16px/1.1 TTCommons;
+}
+.generic-collection-list p {
+  max-width: 680px;
+  margin: 5px 0 0;
+  color: #969188;
+  font: 400 11px/1.35 TTCommons;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.generic-collection-list a {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: #aaa59c;
+  display: grid;
+  place-items: center;
+}
+@keyframes generic-spin { to { transform: rotate(360deg); } }
 .movie-editor {
   width: min(650px, 100%);
   max-height: min(820px, calc(100vh - 40px));

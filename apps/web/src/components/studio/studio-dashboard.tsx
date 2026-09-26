@@ -1,20 +1,26 @@
 import * as React from "react";
 import {
   Bell,
+  BookOpen,
+  Cake,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
   FileText,
+  Film,
   Factory,
   GraduationCap,
   Inbox,
   LibraryBig,
+  Lightbulb,
+  MapPin,
   MoreHorizontal,
   Paperclip,
   Plus,
   Send,
+  ShoppingBag,
   Sparkles,
   Trash2,
   UserRound,
@@ -25,6 +31,7 @@ import {
 import "./studio-dashboard.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
 import { PlannerCollectionsScreen } from "./planner-collections-screen";
+import type { CollectionItemType } from "@/hooks/use-planner-movies";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 import {
@@ -48,6 +55,7 @@ import {
 } from "@/hooks/use-planner-calendar-events";
 import { usePlannerStudents } from "@/hooks/use-planner-students";
 import {
+  type InboxCollectionType,
   type PlannerInboxRow,
   usePlannerInbox,
 } from "@/hooks/use-planner-inbox";
@@ -338,6 +346,12 @@ export function StudioDashboard() {
     id: string;
     title: string;
   } | null>(null);
+  const [inboxCollectionDraft, setInboxCollectionDraft] =
+    React.useState<PlannerInboxRow | null>(null);
+  const [inboxCollectionError, setInboxCollectionError] =
+    React.useState<string | null>(null);
+  const [collectionsInitialType, setCollectionsInitialType] =
+    React.useState<CollectionItemType>("movie");
   const [taskCreationError, setTaskCreationError] = React.useState<
     string | null
   >(null);
@@ -543,10 +557,16 @@ export function StudioDashboard() {
                   setInboxTaskDraft({ id: item.id, title: item.title });
                   setNewTaskCategory("Личное");
                 }}
+                onCollect={(item) => {
+                  setInboxCollectionError(null);
+                  setInboxCollectionDraft(item);
+                }}
               />
             ) : null}
             {screen === "students" ? <PlannerStudentsScreen /> : null}
-            {screen === "collections" ? <PlannerCollectionsScreen /> : null}
+            {screen === "collections" ? (
+              <PlannerCollectionsScreen initialType={collectionsInitialType} />
+            ) : null}
           </div>
         </main>
       </div>
@@ -575,6 +595,31 @@ export function StudioDashboard() {
             setTaskCreationError(null);
           }}
           onCreate={addTask}
+        />
+      ) : null}
+      {inboxCollectionDraft ? (
+        <InboxCollectionPicker
+          item={inboxCollectionDraft}
+          isSaving={plannerInbox.collect.isPending}
+          error={inboxCollectionError}
+          onClose={() => {
+            setInboxCollectionDraft(null);
+            setInboxCollectionError(null);
+          }}
+          onChoose={async (type) => {
+            try {
+              await plannerInbox.collect.mutateAsync({
+                item: inboxCollectionDraft,
+                type,
+              });
+              setInboxCollectionDraft(null);
+              setInboxCollectionError(null);
+              setCollectionsInitialType(type);
+              setScreen("collections");
+            } catch {
+              setInboxCollectionError("Не удалось сохранить в коллекцию.");
+            }
+          }}
         />
       ) : null}
       {selectedLesson ? (
@@ -1383,11 +1428,13 @@ function InboxScreen({
   isLoading,
   onDismiss,
   onCreate,
+  onCollect,
 }: {
   items: PlannerInboxRow[];
   isLoading: boolean;
   onDismiss: (id: string) => void;
   onCreate: (item: PlannerInboxRow) => void;
+  onCollect: (item: PlannerInboxRow) => void;
 }) {
   return (
     <section className="inbox-screen">
@@ -1433,6 +1480,12 @@ function InboxScreen({
                     <Plus size={15} /> Создать задачу
                   </button>
                   <button
+                    className="collect-from-inbox"
+                    onClick={() => onCollect(item)}
+                  >
+                    <LibraryBig size={15} /> В коллекцию
+                  </button>
+                  <button
                     className="dismiss-inbox"
                     onClick={() => onDismiss(item.id)}
                   >
@@ -1449,6 +1502,69 @@ function InboxScreen({
         )}
       </div>
     </section>
+  );
+}
+
+const inboxCollectionTypes: Array<{
+  id: InboxCollectionType;
+  label: string;
+  hint: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+}> = [
+  { id: "movie", label: "Фильм", hint: "Посмотреть", icon: Film },
+  { id: "purchase", label: "Покупка", hint: "Вишлист", icon: ShoppingBag },
+  { id: "birthday", label: "День рождения", hint: "Не забыть", icon: Cake },
+  { id: "place", label: "Место", hint: "Посетить", icon: MapPin },
+  { id: "learning", label: "Изучить", hint: "Книга, статья, курс", icon: BookOpen },
+  { id: "idea", label: "Идея", hint: "Сохранить на потом", icon: Lightbulb },
+];
+
+function InboxCollectionPicker({
+  item,
+  isSaving,
+  error,
+  onClose,
+  onChoose,
+}: {
+  item: PlannerInboxRow;
+  isSaving: boolean;
+  error: string | null;
+  onClose: () => void;
+  onChoose: (type: InboxCollectionType) => Promise<void>;
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <section
+        className="planner-modal inbox-collection-picker"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modal-top">
+          <span>СОХРАНИТЬ НЕ КАК ЗАДАЧУ</span>
+          <button type="button" onClick={onClose} aria-label="Закрыть">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="inbox-collection-heading">
+          <h2>Куда положить?</h2>
+          <p>{item.title}</p>
+        </div>
+        <div className="inbox-collection-types">
+          {inboxCollectionTypes.map(({ id, label, hint, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              disabled={isSaving}
+              onClick={() => void onChoose(id)}
+            >
+              <Icon size={18} strokeWidth={1.6} />
+              <span><b>{label}</b><small>{hint}</small></span>
+              <ChevronRight size={15} />
+            </button>
+          ))}
+        </div>
+        {error ? <p className="modal-error">{error}</p> : null}
+      </section>
+    </div>
   );
 }
 

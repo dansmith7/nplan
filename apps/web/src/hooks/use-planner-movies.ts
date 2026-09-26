@@ -9,6 +9,24 @@ export type MovieStatus =
   | "watched"
   | "postponed";
 
+export type CollectionItemType =
+  | "movie"
+  | "purchase"
+  | "birthday"
+  | "place"
+  | "learning"
+  | "idea";
+
+export type PlannerCollectionItem = {
+  id: string;
+  type: CollectionItemType;
+  title: string;
+  note: string | null;
+  source_url: string | null;
+  image_url: string | null;
+  created_at: string;
+};
+
 type MovieDetails = {
   original_title: string | null;
   release_year: number | null;
@@ -118,6 +136,28 @@ export function useKinopoiskMovieSearch(query: string, enabled = true) {
     enabled: enabled && query.trim().length >= 2,
     staleTime: 10 * 60_000,
     retry: false,
+  });
+}
+
+export function usePlannerCollectionItems(
+  type: Exclude<CollectionItemType, "movie">,
+  enabled = true
+) {
+  const { isConfigured, session } = useSupabaseSession();
+  return useQuery({
+    queryKey: ["planner", "collections", type, session?.user.id],
+    queryFn: async () => {
+      const { data, error } = await requireSupabase()
+        .from("test_collection_items")
+        .select("id, type, title, note, source_url, image_url, created_at")
+        .eq("type", type)
+        .order("created_at", { ascending: false })
+        .returns<PlannerCollectionItem[]>();
+      if (error) throw error;
+      return data;
+    },
+    enabled: enabled && isConfigured && Boolean(session?.user.id),
+    staleTime: 30_000,
   });
 }
 

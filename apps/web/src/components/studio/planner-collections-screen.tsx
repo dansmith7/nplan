@@ -268,7 +268,11 @@ function GenericCollection({
     <div className="generic-collection-list">
       {items.map((item) => (
         <button className="generic-collection-card" key={item.id} onClick={() => onOpen(item)}>
-          <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
+          {item.image_url ? (
+            <img className="generic-collection-thumb" src={item.image_url} alt="" loading="lazy" />
+          ) : (
+            <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
+          )}
           <div>
             <span>{collectionMeta(item)}</span>
             <h2>{item.title}</h2>
@@ -282,7 +286,7 @@ function GenericCollection({
 }
 
 function collectionMeta(item: PlannerCollectionItem) {
-  if (item.type === "purchase" && item.purchase?.price_amount !== null) {
+  if (item.type === "purchase" && item.purchase?.price_amount != null) {
     return `${item.purchase?.price_amount ?? ""} ${item.purchase?.currency ?? "RUB"}`;
   }
   if (item.type === "birthday" && item.birthday?.birth_date) {

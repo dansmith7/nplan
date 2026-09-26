@@ -49,7 +49,7 @@ async function getCalendarEvents(
       .gte("starts_at", range.from).lt("starts_at", range.to).order("starts_at")
       .returns<Array<Omit<PlannerCalendarEventRow, "collection_item_id">>>(),
     client
-      .from("test_collection_calendar_events")
+      .from("collection_calendar_events")
       .select("id, item_id, title, starts_at, ends_at")
       .gte("starts_at", range.from).lt("starts_at", range.to).order("starts_at"),
   ]);
@@ -124,7 +124,7 @@ export function usePlannerCalendarEvents(range: EventRange) {
     }: CalendarEventInput & { id: string }) => {
       const birthdayId = id.startsWith("collection:") ? id.slice(11) : null;
       const { error } = birthdayId
-        ? await requireSupabase().from("test_collection_calendar_events").update({ title: input.title.trim(), starts_at: input.startsAt, ends_at: input.endsAt }).eq("id", birthdayId)
+        ? await requireSupabase().from("collection_calendar_events").update({ title: input.title.trim(), starts_at: input.startsAt, ends_at: input.endsAt }).eq("id", birthdayId)
         : await requireSupabase().from("calendar_events").update(toRow(input)).eq("id", id);
       if (error) throw error;
     },
@@ -147,7 +147,7 @@ export function usePlannerCalendarEvents(range: EventRange) {
     mutationFn: async (id: string) => {
       const birthdayId = id.startsWith("collection:") ? id.slice(11) : null;
       const { error } = birthdayId
-        ? await requireSupabase().from("test_collection_calendar_events").delete().eq("id", birthdayId)
+        ? await requireSupabase().from("collection_calendar_events").delete().eq("id", birthdayId)
         : await requireSupabase().from("calendar_events").delete().eq("id", id);
       if (error) throw error;
     },

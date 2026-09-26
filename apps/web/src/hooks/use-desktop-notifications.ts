@@ -201,7 +201,7 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
       .in("kind", ["task", "lesson"])
       .gte("starts_at", pastWindow.toISOString()).lte("starts_at", futureWindow.toISOString())
       .returns<ReminderEvent[]>(),
-    client.from("test_collection_calendar_events")
+    client.from("collection_calendar_events")
       .select("id,title,starts_at")
       .gte("starts_at", pastWindow.toISOString()).lte("starts_at", futureWindow.toISOString())
       .returns<BirthdayReminderEvent[]>(),

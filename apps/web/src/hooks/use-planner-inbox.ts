@@ -66,7 +66,7 @@ async function getInbox(): Promise<PlannerInboxRow[]> {
       .order("received_at", { ascending: false })
       .limit(50)
       .returns<PlannerInboxRow[]>(),
-    supabase.from("test_collection_inbox_links").select("inbox_id"),
+    supabase.from("collection_inbox_links").select("inbox_id"),
   ]);
   if (inboxResult.error) throw inboxResult.error;
   if (routedResult.error) throw routedResult.error;
@@ -146,7 +146,7 @@ export function usePlannerInbox() {
     }) => {
       const movie = type === "movie" ? movieMetadata(item.metadata) : null;
       const { data, error } = await requireSupabase().rpc(
-        "test_route_inbox_to_collection",
+        "route_inbox_to_collection",
         {
           p_inbox_id: item.id,
           p_type: type,

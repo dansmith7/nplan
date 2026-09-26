@@ -110,9 +110,9 @@ const moviesKey = (userId?: string) =>
 
 async function getMovies(): Promise<PlannerMovie[]> {
   const { data, error } = await requireSupabase()
-    .from("test_collection_items")
+    .from("collection_items")
     .select(
-      "id, title, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:test_collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, kinopoisk_id, watch_provider, trailer_url, recommended_by, personal_rating, status)"
+      "id, title, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, kinopoisk_id, watch_provider, trailer_url, recommended_by, personal_rating, status)"
     )
     .eq("type", "movie")
     .order("created_at", { ascending: false })
@@ -142,7 +142,7 @@ const rpcInput = (input: MovieInput) => ({
 
 async function searchKinopoisk(query: string): Promise<KinopoiskMovieResult[]> {
   const { data, error } = await requireSupabase().functions.invoke(
-    "test-kinopoisk-search",
+    "kinopoisk-search",
     { body: { query } }
   );
   if (error) throw error;
@@ -170,8 +170,8 @@ export function usePlannerCollectionItems(
     queryKey: key,
     queryFn: async () => {
       const { data, error } = await requireSupabase()
-        .from("test_collection_items")
-        .select("id, type, title, note, source_url, image_url, created_at, purchase:test_collection_purchases(price_amount,currency), birthday:test_collection_birthdays(birth_date), place:test_collection_places(location,map_url,visited), learning:test_collection_learning(content_kind,status)")
+        .from("collection_items")
+        .select("id, type, title, note, source_url, image_url, created_at, purchase:collection_purchases(price_amount,currency), birthday:collection_birthdays(birth_date), place:collection_places(location,map_url,visited), learning:collection_learning(content_kind,status)")
         .eq("type", type)
         .order("created_at", { ascending: false })
         .returns<PlannerCollectionItem[]>();
@@ -186,7 +186,7 @@ export function usePlannerCollectionItems(
   const save = useMutation({
     mutationFn: async ({ id, input }: { id?: string; input: CollectionItemInput }) => {
       const { data, error } = await requireSupabase().rpc(
-        "test_save_collection_item",
+        "save_collection_item",
         {
           p_item_id: id ?? null,
           p_type: input.type,
@@ -212,7 +212,7 @@ export function usePlannerCollectionItems(
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await requireSupabase()
-        .from("test_collection_items")
+        .from("collection_items")
         .delete()
         .eq("id", id);
       if (error) throw error;
@@ -240,7 +240,7 @@ export function usePlannerMovies() {
   const create = useMutation({
     mutationFn: async (input: MovieInput) => {
       const { data, error } = await requireSupabase().rpc(
-        "test_create_collection_movie",
+        "create_collection_movie",
         rpcInput(input)
       );
       if (error) throw error;
@@ -252,7 +252,7 @@ export function usePlannerMovies() {
   const update = useMutation({
     mutationFn: async ({ id, ...input }: MovieInput & { id: string }) => {
       const { error } = await requireSupabase().rpc(
-        "test_update_collection_movie",
+        "update_collection_movie",
         { p_item_id: id, ...rpcInput(input) }
       );
       if (error) throw error;
@@ -263,7 +263,7 @@ export function usePlannerMovies() {
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await requireSupabase()
-        .from("test_collection_items")
+        .from("collection_items")
         .delete()
         .eq("id", id);
       if (error) throw error;

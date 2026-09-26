@@ -10,6 +10,7 @@ import {
   Factory,
   GraduationCap,
   Inbox,
+  LibraryBig,
   MoreHorizontal,
   Paperclip,
   Plus,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import "./studio-dashboard.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
+import { PlannerCollectionsScreen } from "./planner-collections-screen";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 import {
@@ -55,7 +57,7 @@ import {
   usePendingLessonConfirmations,
 } from "@/hooks/use-planner-lessons";
 
-type Screen = "planner" | "calendar" | "inbox" | "students";
+type Screen = "planner" | "calendar" | "inbox" | "students" | "collections";
 type Category =
   | "Китай"
   | "Реестр"
@@ -407,6 +409,11 @@ export function StudioDashboard() {
     { id: "calendar", label: "Календарь", icon: <CalendarDays size={17} /> },
     { id: "inbox", label: "Входящие", icon: <Inbox size={17} /> },
     { id: "students", label: "Ученики", icon: <Users size={17} /> },
+    {
+      id: "collections",
+      label: "Коллекции",
+      icon: <LibraryBig size={17} />,
+    },
   ];
   return (
     <div className="planner-shell">
@@ -539,6 +546,7 @@ export function StudioDashboard() {
               />
             ) : null}
             {screen === "students" ? <PlannerStudentsScreen /> : null}
+            {screen === "collections" ? <PlannerCollectionsScreen /> : null}
           </div>
         </main>
       </div>

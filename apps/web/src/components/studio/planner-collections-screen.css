@@ -502,6 +502,28 @@
   from { transform: translateY(-50%) rotate(0); }
   to { transform: translateY(-50%) rotate(360deg); }
 }
+.collection-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #8a5048;
+  font: 600 13px/1 TTCommons;
+}
+.collection-delete-confirm > button:not(.delete-button) {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #c8c1b6;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: 600 13px/1 TTCommons;
+  cursor: pointer;
+}
+.collection-delete-confirm .delete-button {
+  min-height: 38px;
+  background: #8a5048;
+  color: var(--paper);
+}
 @media (max-width: 920px) {
   .movie-toolbar {
     align-items: stretch;

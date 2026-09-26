@@ -105,6 +105,20 @@ type MovieQueryRow = Omit<PlannerMovie, "movie"> & {
   movie: MovieDetails | MovieDetails[];
 };
 
+type RelatedRow<T> = T | T[] | null;
+type CollectionItemQueryRow = Omit<
+  PlannerCollectionItem,
+  "purchase" | "birthday" | "place" | "learning"
+> & {
+  purchase: RelatedRow<NonNullable<PlannerCollectionItem["purchase"]>>;
+  birthday: RelatedRow<NonNullable<PlannerCollectionItem["birthday"]>>;
+  place: RelatedRow<NonNullable<PlannerCollectionItem["place"]>>;
+  learning: RelatedRow<NonNullable<PlannerCollectionItem["learning"]>>;
+};
+
+const relatedRow = <T,>(value: RelatedRow<T>): T | null =>
+  Array.isArray(value) ? value[0] ?? null : value;
+
 const moviesKey = (userId?: string) =>
   ["planner", "collections", "movies", userId] as const;
 
@@ -174,15 +188,26 @@ export function usePlannerCollectionItems(
         .select("id, type, title, note, source_url, image_url, created_at, purchase:collection_purchases(price_amount,currency), birthday:collection_birthdays(birth_date), place:collection_places(location,map_url,visited), learning:collection_learning(content_kind,status)")
         .eq("type", type)
         .order("created_at", { ascending: false })
-        .returns<PlannerCollectionItem[]>();
+        .returns<CollectionItemQueryRow[]>();
       if (error) throw error;
-      return data;
+      return data.map((item) => ({
+        ...item,
+        purchase: relatedRow(item.purchase),
+        birthday: relatedRow(item.birthday),
+        place: relatedRow(item.place),
+        learning: relatedRow(item.learning),
+      }));
     },
     enabled: enabled && isConfigured && Boolean(session?.user.id),
     staleTime: 30_000,
   });
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["planner", "collections"] });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["planner", "collections"] }),
+      queryClient.invalidateQueries({
+        queryKey: ["planner", "calendar-events", session?.user.id],
+      }),
+    ]);
   const save = useMutation({
     mutationFn: async ({ id, input }: { id?: string; input: CollectionItemInput }) => {
       const { data, error } = await requireSupabase().rpc(
@@ -211,10 +236,10 @@ export function usePlannerCollectionItems(
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await requireSupabase()
-        .from("collection_items")
-        .delete()
-        .eq("id", id);
+      const { error } = await requireSupabase().rpc(
+        "delete_collection_item",
+        { p_item_id: id }
+      );
       if (error) throw error;
     },
     onSuccess: invalidate,
@@ -262,10 +287,10 @@ export function usePlannerMovies() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await requireSupabase()
-        .from("collection_items")
-        .delete()
-        .eq("id", id);
+      const { error } = await requireSupabase().rpc(
+        "delete_collection_item",
+        { p_item_id: id }
+      );
       if (error) throw error;
     },
     onSuccess: invalidate,

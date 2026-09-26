@@ -228,7 +228,7 @@ export function PlannerCollectionsScreen({
         <CollectionItemEditor
           type={genericType}
           item={genericEditing === "new" ? null : genericEditing}
-          isSaving={genericItems.save.isPending}
+          isSaving={genericItems.save.isPending || genericItems.remove.isPending}
           onClose={() => setGenericEditing(null)}
           onSave={async (input) => {
             await genericItems.save.mutateAsync({
@@ -238,7 +238,6 @@ export function PlannerCollectionsScreen({
             setGenericEditing(null);
           }}
           onDelete={genericEditing === "new" ? undefined : async () => {
-            if (!window.confirm(`Удалить «${genericEditing.title}»?`)) return;
             await genericItems.remove.mutateAsync(genericEditing.id);
             setGenericEditing(null);
           }}
@@ -328,6 +327,7 @@ function CollectionItemEditor({
   const [contentKind, setContentKind] = React.useState(item?.learning?.content_kind ?? "other");
   const [contentStatus, setContentStatus] = React.useState(item?.learning?.status ?? "saved");
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
   const label = collectionTypes.find((entry) => entry.id === type)?.label ?? "Коллекция";
 
   const submit = async (event: React.FormEvent) => {
@@ -347,6 +347,17 @@ function CollectionItemEditor({
     }
   };
 
+  const remove = async () => {
+    if (!onDelete) return;
+    setError(null);
+    try {
+      await onDelete();
+    } catch {
+      setError("Не удалось удалить запись.");
+      setConfirmingDelete(false);
+    }
+  };
+
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <form className="planner-modal movie-editor collection-item-editor" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
@@ -362,7 +373,11 @@ function CollectionItemEditor({
           <label className="wide">Заметка<textarea value={note} onChange={(event) => setNote(event.target.value)} /></label>
         </div>
         {error ? <p className="modal-error">{error}</p> : null}
-        <div className="modal-footer">{onDelete ? <button className="delete-button" type="button" onClick={() => void onDelete()}><Trash2 size={15} /> Удалить</button> : null}<button className="complete-modal" disabled={isSaving} type="submit">{isSaving ? "Сохраняю…" : "Сохранить"}</button></div>
+        <div className="modal-footer">
+          {onDelete && !confirmingDelete ? <button className="delete-button" type="button" disabled={isSaving} onClick={() => setConfirmingDelete(true)}><Trash2 size={15} /> Удалить</button> : null}
+          {onDelete && confirmingDelete ? <div className="collection-delete-confirm"><span>Удалить запись?</span><button type="button" disabled={isSaving} onClick={() => setConfirmingDelete(false)}>Отмена</button><button className="delete-button" type="button" disabled={isSaving} onClick={() => void remove()}>{isSaving ? "Удаляю…" : "Удалить"}</button></div> : null}
+          <button className="complete-modal" disabled={isSaving || confirmingDelete} type="submit">{isSaving ? "Сохраняю…" : "Сохранить"}</button>
+        </div>
       </form>
     </div>
   );

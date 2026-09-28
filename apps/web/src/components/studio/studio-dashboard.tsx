@@ -32,7 +32,6 @@ import {
   X,
 } from "lucide-react";
 import "./studio-dashboard.css";
-import "./today-cards.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
 import { PlannerCollectionsScreen } from "./planner-collections-screen";
 import { PlannerSleepScreen } from "./planner-sleep-screen";
@@ -66,11 +65,7 @@ import {
   type PlannerInboxRow,
   usePlannerInbox,
 } from "@/hooks/use-planner-inbox";
-import {
-  type PlannerLessonRow,
-  useLessonConfirmationActions,
-  usePendingLessonConfirmations,
-} from "@/hooks/use-planner-lessons";
+import { useLessonConfirmationActions } from "@/hooks/use-planner-lessons";
 
 type Screen = "planner" | "calendar" | "inbox" | "students" | "collections" | "sleep" | "day" | "analytics";
 type Category =
@@ -157,13 +152,6 @@ type PlannerEvent = {
 };
 
 const calendarDays = 7;
-const lessonDateFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
 function startOfPlannerWeek(value: Date) {
   const result = new Date(value);
   result.setHours(0, 0, 0, 0);
@@ -255,7 +243,6 @@ export function StudioDashboard() {
   useDesktopNotifications(plannerBootstrap.data?.profile);
   const plannerTasks = usePlannerTasks();
   const plannerInbox = usePlannerInbox();
-  const pendingLessons = usePendingLessonConfirmations();
   const lessonConfirmation = useLessonConfirmationActions();
   const [calendarWeekStart, setCalendarWeekStart] = React.useState(() =>
     startOfPlannerWeek(new Date())
@@ -523,10 +510,6 @@ export function StudioDashboard() {
                 inboxItems={plannerInbox.data ?? []}
                 inboxIsLoading={plannerInbox.isLoading}
                 inboxIsError={plannerInbox.isError}
-                pendingLessons={pendingLessons.data ?? []}
-                onConfirmLesson={(eventId, status) =>
-                  lessonConfirmation.setStatus.mutateAsync({ eventId, status })
-                }
                 onComplete={completeTask}
                 onOpen={setSelectedTask}
                 onAdd={(category) => {
@@ -669,8 +652,6 @@ function PlannerScreen({
   inboxItems,
   inboxIsLoading,
   inboxIsError,
-  pendingLessons,
-  onConfirmLesson,
   onComplete,
   onOpen,
   onAdd,
@@ -682,11 +663,6 @@ function PlannerScreen({
   inboxItems: PlannerInboxRow[];
   inboxIsLoading: boolean;
   inboxIsError: boolean;
-  pendingLessons: PlannerLessonRow[];
-  onConfirmLesson: (
-    eventId: string,
-    status: "held" | "cancelled"
-  ) => Promise<unknown>;
   onComplete: (id: string) => void | Promise<void>;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
@@ -732,17 +708,6 @@ function PlannerScreen({
         onOpen={onOpen}
         onOpenInbox={() => onNavigate("inbox")}
       />
-      {!isEveningReview ? (
-        <div className="planner-dashboard-review">
-          <MorningReviewScreen
-            tasks={tasks}
-            inboxItems={inboxItems}
-            pendingLessons={pendingLessons}
-            onConfirmLesson={onConfirmLesson}
-            onNavigate={onNavigate}
-          />
-        </div>
-      ) : null}
       <section className="category-section">
         <div className="section-title">
           <div>
@@ -1587,78 +1552,6 @@ function InboxCollectionPicker({
         {error ? <p className="modal-error">{error}</p> : null}
       </section>
     </div>
-  );
-}
-
-function MorningReviewScreen({
-  tasks,
-  inboxItems,
-  pendingLessons,
-  onConfirmLesson,
-  onNavigate,
-}: {
-  tasks: Task[];
-  inboxItems: PlannerInboxRow[];
-  pendingLessons: PlannerLessonRow[];
-  onConfirmLesson: (
-    eventId: string,
-    status: "held" | "cancelled"
-  ) => Promise<unknown>;
-  onNavigate: (screen: Screen) => void;
-}) {
-  const important = tasks.filter((task) => !task.done).slice(0, 3);
-
-  return (
-    <section className="daily-review morning-review">
-      <div className="review-heading">
-        <div>
-          <span>СЕГОДНЯ · СПОКОЙНЫЙ СТАРТ</span>
-          <h1>Сегодня.</h1>
-        </div>
-        <p>Что важно, как ты входишь в день и что захочется закрыть вечером.</p>
-      </div>
-      <div className="today-cards">
-        <section className="review-panel"><span>ВАЖНО СЕГОДНЯ</span><h2>{important.length ? "Выбери главное" : "Свободный день"}</h2><div className="today-task-list">{important.map((task) => <button key={task.id}><CircleCheck size={15}/>{task.title}</button>)}{!important.length ? <small>Нет незавершённых задач. Можно не добавлять ничего лишнего.</small> : null}</div></section>
-        <button className="review-panel today-link-card" onClick={() => onNavigate("sleep")}><span>КАК Я ВХОЖУ В ДЕНЬ</span><h2>Сон и состояние</h2><p>Отметь ночь и оцени энергию, когда будет удобно.</p><ChevronRight size={17}/></button>
-        <button className="review-panel today-link-card" onClick={() => onNavigate("day")}><span>ЗАКРЫТЬ ВЕЧЕРОМ</span><h2>Карточка дня</h2><p>Тренировка, привычки, вес и одна мысль о дне.</p><ChevronRight size={17}/></button>
-      </div>
-      {pendingLessons.length ? (
-        <section className="lesson-confirmations">
-          <header>
-            <div>
-              <span>ПРОШЕДШИЕ УРОКИ · {pendingLessons.length}</span>
-              <h2>Урок состоялся?</h2>
-            </div>
-            <p>Ответ обновит историю ученика и календарь.</p>
-          </header>
-          <div>
-            {pendingLessons.map((lesson) => (
-              <article key={lesson.id}>
-                <div>
-                  <b>{lesson.student.name}</b>
-                  <span>
-                    {lessonDateFormatter.format(new Date(lesson.starts_at))}
-                  </span>
-                </div>
-                <div>
-                  <button
-                    onClick={() => void onConfirmLesson(lesson.id, "held")}
-                  >
-                    <Check size={15} /> Был
-                  </button>
-                  <button
-                    className="lesson-cancelled"
-                    onClick={() => void onConfirmLesson(lesson.id, "cancelled")}
-                  >
-                    Не был
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </section>
   );
 }
 

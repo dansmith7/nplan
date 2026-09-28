@@ -1,0 +1,80 @@
+.sleep-week-chart {
+  min-height: 220px;
+  padding: 18px 0 20px;
+}
+
+.sleep-chart-plot {
+  position: relative;
+  height: 174px;
+  margin: 0 20px;
+}
+
+.sleep-chart-plot .sleep-chart-grid {
+  inset: 0;
+}
+
+.sleep-chart-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sleep-chart-line line {
+  stroke: #baa875;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.sleep-chart-point {
+  position: absolute;
+  z-index: 1;
+  transform: translateX(-50%);
+}
+
+.sleep-chart-point b {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #d9d0be;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sleep-chart-point i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #ded4bf;
+  border-radius: 50%;
+  background: #4a6f67;
+  box-shadow: 0 0 0 4px rgba(56, 100, 93, 0.18);
+}
+
+.sleep-chart-point.today i {
+  border-color: #fffaf0;
+  background: #e8e2d6;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+.sleep-chart-labels {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-top: 11px;
+}
+
+.sleep-chart-labels span {
+  color: #938d83;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .sleep-chart-plot {
+    height: 144px;
+    margin: 0 10px;
+  }
+}

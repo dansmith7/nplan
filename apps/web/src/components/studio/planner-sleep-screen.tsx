@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Check, ChevronRight, MoonStar, Pencil, Plus, Sunrise, Trash2 } from "lucide-react";
 import "./planner-sleep-screen.css";
+import "./planner-sleep-chart.css";
 import { usePlannerSleepEntries } from "@/hooks/use-planner-sleep-entries";
 
 type Mood = "Отличное" | "Хорошее" | "Спокойное" | "Тяжёлое" | "Плохое";
@@ -78,6 +79,7 @@ export function PlannerSleepScreen() {
   const today = entries.find((entry) => entry.date === todayKey());
   const week = React.useMemo(() => Array.from({ length: 7 }, (_, index) => dateFromOffset(index - 6)), []);
   const weeklyEntries = week.map((date) => entries.find((entry) => entry.date === date));
+  const weeklyScores = weeklyEntries.map((entry) => entry ? indexFor(entry, sorted) : null);
   const recent = sorted.slice(0, 7);
   const average = recent.length ? Math.round(recent.reduce((sum, entry) => sum + duration(entry.bedtime, entry.wakeTime), 0) / recent.length) : null;
   const current = today ?? sorted[0]; const currentIndex = current ? indexFor(current, sorted) : null;
@@ -99,10 +101,23 @@ export function PlannerSleepScreen() {
     <header className="sleep-heading"><div><span>ЛИЧНАЯ ИСТОРИЯ</span><h1>Сон.</h1><p>Одно утреннее касание — и ритм становится видимым.</p></div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="sleep-primary" style={{ background: "transparent", border: "1px solid #5a5347", color: "#e7dcc9" }} onClick={() => setEditing(null)}><Plus size={16} />Добавить ночь</button>{today ? <button className="sleep-primary" onClick={() => setEditing(today)}><Pencil size={16} />Изменить запись</button> : <button className="sleep-primary" onClick={() => setEditing(null)}><Sunrise size={16} />Отметить сон</button>}</div></header>
     <section className="sleep-index-card"><div className="sleep-index-copy"><span>ИНДЕКС ПРИВЫЧКИ СНА</span><strong>{currentIndex ?? "—"}</strong><p>{current ? "за последнюю отмеченную ночь" : "появится после первой записи"}</p></div>
-      <div className="sleep-week-chart" aria-label="Индекс привычки сна за неделю"><div className="sleep-chart-grid" aria-hidden="true"><i /><i /><i /></div><div className="sleep-bars">{weeklyEntries.map((entry, index) => {
-        const score = entry ? indexFor(entry, sorted) : 0; const isToday = week[index] === todayKey();
-        return <div className="sleep-bar-item" key={week[index]}>{entry ? <b>{score}</b> : null}<div className={"sleep-bar " + (isToday ? "today" : "")} style={{ height: Math.max(entry ? 18 : 3, score) + "%" }} /><span>{weekday(week[index]!)}</span></div>;
-      })}</div></div></section>
+      <div className="sleep-week-chart" aria-label="Индекс привычки сна за неделю">
+        <div className="sleep-chart-plot">
+          <div className="sleep-chart-grid" aria-hidden="true"><i /><i /><i /></div>
+          <svg className="sleep-chart-line" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
+            {weeklyScores.slice(1).map((score, index) => {
+              const previous = weeklyScores[index] ?? null;
+              if (score === null || previous === null) return null;
+              return <line key={week[index + 1]} x1={(index / 6) * 600} y1={100 - previous} x2={((index + 1) / 6) * 600} y2={100 - score} />;
+            })}
+          </svg>
+          {weeklyScores.map((score, index) => {
+            const isToday = week[index] === todayKey();
+            return score === null ? null : <div className={"sleep-chart-point " + (isToday ? "today" : "")} key={week[index]} style={{ left: String((index / 6) * 100) + "%", bottom: String(score) + "%" }}><b>{score}</b><i /></div>;
+          })}
+        </div>
+        <div className="sleep-chart-labels">{week.map((date) => <span key={date}>{weekday(date)}</span>)}</div>
+      </div></section>
     <section className="sleep-stat-grid">
       <article><span>СОН ЗА НОЧЬ</span><strong>{current ? shortDuration(duration(current.bedtime, current.wakeTime)) : "—"}</strong><p>{current ? current.bedtime + " — " + current.wakeTime : "отметь время сна и подъёма"}</p></article>
       <article><span>СРЕДНЕЕ ЗА НЕДЕЛЮ</span><strong>{average ? shortDuration(average) : "—"}</strong><p>{recent.length ? "по " + String(recent.length) + " ночам" : "появится после записей"}</p></article>

@@ -371,12 +371,6 @@ const appIdeasRoute = createRoute({
   }),
 });
 
-const appSleepRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/sleep",
-  component: lazyRouteComponent(() => import("./routes/app/sleep")),
-});
-
 // Build the route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -418,7 +412,6 @@ const routeTree = rootRoute.addChildren([
     appMoreRoute,
     appRoutinesRoute,
     appIdeasRoute,
-    appSleepRoute,
   ]),
 ]);
 

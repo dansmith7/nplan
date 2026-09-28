@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   Bell,
+  BedDouble,
   BookOpen,
   Cake,
   CalendarDays,
@@ -31,6 +32,7 @@ import {
 import "./studio-dashboard.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
 import { PlannerCollectionsScreen } from "./planner-collections-screen";
+import { PlannerSleepScreen } from "./planner-sleep-screen";
 import type { CollectionItemType } from "@/hooks/use-planner-movies";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
@@ -65,7 +67,7 @@ import {
   usePendingLessonConfirmations,
 } from "@/hooks/use-planner-lessons";
 
-type Screen = "planner" | "calendar" | "inbox" | "students" | "collections";
+type Screen = "planner" | "calendar" | "inbox" | "students" | "collections" | "sleep";
 type Category =
   | "Китай"
   | "Реестр"
@@ -428,6 +430,7 @@ export function StudioDashboard() {
       label: "Коллекции",
       icon: <LibraryBig size={17} />,
     },
+    { id: "sleep", label: "Сон", icon: <BedDouble size={17} /> },
   ];
   return (
     <div className="planner-shell">
@@ -567,6 +570,7 @@ export function StudioDashboard() {
             {screen === "collections" ? (
               <PlannerCollectionsScreen initialType={collectionsInitialType} />
             ) : null}
+            {screen === "sleep" ? <PlannerSleepScreen /> : null}
           </div>
         </main>
       </div>

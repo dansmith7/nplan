@@ -11,7 +11,6 @@ import {
   Bell,
   Key,
   Terminal,
-  BedDouble,
   LogOut,
   ChevronRight,
   Search,
@@ -144,12 +143,6 @@ export function MobileMoreMenu({ onLogout }: MobileMoreMenuProps) {
     {
       title: "Work",
       items: [
-        {
-          id: "sleep",
-          icon: BedDouble,
-          label: "Sleep",
-          href: "/app/sleep",
-        },
         {
           id: "search",
           icon: Search,

@@ -1600,10 +1600,10 @@ function MorningReviewScreen({
     <section className="daily-review morning-review">
       <div className="review-heading">
         <div>
-          <span>ЕЖЕДНЕВНО · 10:15</span>
-          <h1>Утренний разбор.</h1>
+          <span>СЕГОДНЯ · СПОКОЙНЫЙ СТАРТ</span>
+          <h1>Сегодня.</h1>
         </div>
-        <p>Коротко свериться с днём, не превращая планнер в ещё один список.</p>
+        <p>Что важно, как ты входишь в день и что захочется закрыть вечером.</p>
       </div>
       <div className="morning-grid morning-mail-grid">
         <section className="review-panel mail-panel morning-mail-panel">

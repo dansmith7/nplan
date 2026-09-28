@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   List,
   Lightbulb,
+  BedDouble,
   Search,
   Settings,
   LogOut,
@@ -98,6 +99,9 @@ export function Header({ className }: HeaderProps) {
           </NavLink>
           <NavLink href="/app/ideas" icon={<Lightbulb className="h-3.5 w-3.5" />}>
             Ideas
+          </NavLink>
+          <NavLink href="/app/sleep" icon={<BedDouble className="h-3.5 w-3.5" />}>
+            Sleep
           </NavLink>
         </nav>
 
@@ -253,7 +257,7 @@ export function Header({ className }: HeaderProps) {
 }
 
 interface NavLinkProps {
-  href: "/app/board" | "/app/tasks" | "/app/calendar" | "/app/ideas";
+  href: "/app/board" | "/app/tasks" | "/app/calendar" | "/app/ideas" | "/app/sleep";
   icon?: React.ReactNode;
   children: React.ReactNode;
 }

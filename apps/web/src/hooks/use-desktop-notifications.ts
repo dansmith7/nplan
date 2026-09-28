@@ -37,6 +37,26 @@ type ZonedNow = {
   minutes: number;
 };
 
+function hasSleepEntryForToday(localDate: string) {
+  try {
+    const entries: unknown = JSON.parse(
+      localStorage.getItem("nplan-sleep-entries") ?? "[]"
+    );
+    return (
+      Array.isArray(entries) &&
+      entries.some(
+        (entry) =>
+          Boolean(entry) &&
+          typeof entry === "object" &&
+          "date" in entry &&
+          entry.date === localDate
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getZonedNow(value: Date, timezone: string): ZonedNow {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
@@ -154,13 +174,16 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
   const marker = dailyMarker(now);
 
   if (now.minutes >= morning && now.minutes < evening) {
+    const sleepMissing = !hasSleepEntryForToday(now.date);
     await deliverOnce({
       userId,
       kind: "morning_review",
       scheduledFor: marker,
       title: "Доброе утро. План на сегодня",
-      body: `${overdue} просрочено · ${today} на сегодня`,
-      metadata: { overdue, today, localDate: now.date },
+      body: sleepMissing
+        ? `${overdue} просрочено · ${today} на сегодня · отметь сон`
+        : `${overdue} просрочено · ${today} на сегодня`,
+      metadata: { overdue, today, localDate: now.date, sleepMissing },
     });
   }
 

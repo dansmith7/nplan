@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Check, ChevronRight, MoonStar, Pencil, Plus, Sunrise, Trash2 } from "lucide-react";
 import "./planner-sleep-screen.css";
+import { usePlannerSleepEntries } from "@/hooks/use-planner-sleep-entries";
 
 type Mood = "Отличное" | "Хорошее" | "Спокойное" | "Тяжёлое" | "Плохое";
 type DayReport = { energy: number; sleepiness: number; clarity: number; mood: number };
@@ -67,9 +68,12 @@ function indexFor(entry: Entry, history: Entry[]) {
 }
 
 export function PlannerSleepScreen() {
+  const sleepStore = usePlannerSleepEntries();
   const [entries, setEntries] = React.useState<Entry[]>([]);
   const [editing, setEditing] = React.useState<Entry | null | undefined>(undefined);
-  React.useEffect(() => setEntries(readEntries()), []);
+  const imported = React.useRef(false);
+  React.useEffect(() => { if (sleepStore.data) setEntries(sleepStore.data); }, [sleepStore.data]);
+  React.useEffect(() => { if (imported.current || !sleepStore.data) return; imported.current = true; const local = readEntries(); const remoteDays = new Set(sleepStore.data.map((entry) => entry.date)); const missing = local.filter((entry) => !remoteDays.has(entry.date)); if (missing.length) void Promise.all(missing.map((entry) => sleepStore.save.mutateAsync(entry))).then(() => localStorage.removeItem(entriesKey)); }, [sleepStore.data, sleepStore.save]);
   const sorted = React.useMemo(() => [...entries].sort((a, b) => b.date.localeCompare(a.date)), [entries]);
   const today = entries.find((entry) => entry.date === todayKey());
   const week = React.useMemo(() => Array.from({ length: 7 }, (_, index) => dateFromOffset(index - 6)), []);
@@ -84,9 +88,9 @@ export function PlannerSleepScreen() {
     if (reportForPrevious && previousEntry) {
       next = next.map((item) => item.id === previousEntry.id ? { ...item, dayReport: reportForPrevious } : item);
     }
-    setEntries(next); localStorage.setItem(entriesKey, JSON.stringify(next)); setEditing(undefined); window.dispatchEvent(new Event("nplan-sleep-entry-changed"));
+    void Promise.all(next.filter((item) => item.id === entry.id || (reportForPrevious && item.id === previousEntry?.id)).map((item) => sleepStore.save.mutateAsync(item))).then(() => { setEditing(undefined); window.dispatchEvent(new Event("nplan-sleep-entry-changed")); });
   };
-  const remove = (id: string) => { const next = entries.filter((entry) => entry.id !== id); setEntries(next); localStorage.setItem(entriesKey, JSON.stringify(next)); window.dispatchEvent(new Event("nplan-sleep-entry-changed")); };
+  const remove = (id: string) => { void sleepStore.remove.mutateAsync(id).then(() => window.dispatchEvent(new Event("nplan-sleep-entry-changed"))); };
   const advice = !current ? "Первая запись займёт меньше минуты — завтра будет с чем сравнить."
     : duration(current.bedtime, current.wakeTime) < 420 ? "Сегодня меньше 7 часов. Это мягкий ориентир для взрослых, а не диагноз."
     : current.awakenings >= 3 ? "Было несколько пробуждений. Просто отметь это и посмотри на картину за неделю."

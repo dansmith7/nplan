@@ -6,6 +6,17 @@ AI-agent-friendly task management + time blocking app. TypeScript monorepo with 
 
 **Use Cursor browser tool for UI testing.**
 
+## NPlan deployment terminology
+
+For this NPlan fork, use these names consistently in conversation and release work:
+
+| Term | Canonical URL | Purpose |
+| ---- | ------------- | ------- |
+| **Test stand / Preview** | https://nplan-imoip1qq6-dansmith7s-projects.vercel.app/app | The user checks unfinished changes here. Deploy from `codex/collections-test`; never call this production. |
+| **Production / prod** | https://nplan-tau.vercel.app/ | The live user-facing application. Only deploy here after the user explicitly asks to publish to production. |
+
+Vercel's unique deployment URLs (for example `nplan-*.vercel.app`) are build artifacts, not the canonical production URL. Always report the appropriate canonical URL above.
+
 | Environment | Web                     | API                         | Prerequisites                          |
 | ----------- | ----------------------- | --------------------------- | -------------------------------------- |
 | Local       | http://localhost:3000   | http://localhost:3001       | `bun dev` running for both web and api |

@@ -213,6 +213,88 @@ html.studio-shell-active.tauri-window #root {
   margin-left: auto;
   color: #8e8980;
 }
+.lesson-confirmation-panel {
+  max-width: 870px;
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid #695c3d;
+  border-radius: 10px;
+  background: #211e17;
+}
+.lesson-confirmation-panel > header,
+.lesson-confirmation-panel article,
+.lesson-confirmation-panel article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lesson-confirmation-panel header span {
+  display: block;
+  color: #c3a76d;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+.lesson-confirmation-panel h2 {
+  margin: 7px 0 0;
+  font: 400 27px/1 Georgia;
+}
+.lesson-confirmation-panel header p {
+  max-width: 245px;
+  margin: 0;
+  color: #aaa294;
+  font-size: 13px;
+}
+.lesson-confirmation-panel article {
+  min-height: 72px;
+  border-top: 1px solid #4b4331;
+}
+.lesson-confirmation-panel article:first-child {
+  margin-top: var(--space-3);
+}
+.lesson-confirmation-details {
+  display: grid;
+  gap: 4px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  text-align: left;
+  font-family: TTCommons;
+  cursor: pointer;
+}
+.lesson-confirmation-details strong {
+  font-size: 15px;
+}
+.lesson-confirmation-details span {
+  color: #a49d91;
+  font-size: 13px;
+}
+.lesson-confirmation-panel article button:not(.lesson-confirmation-details) {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 6px;
+  font: 600 13px TTCommons;
+  cursor: pointer;
+}
+.lesson-confirmation-held {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+.lesson-confirmation-cancelled {
+  border: 1px solid #655b4c;
+  background: transparent;
+  color: #d9948b;
+}
+.lesson-confirmation-panel article button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
 .students-loading,
 .student-history-empty {
   margin-top: var(--space-4);
@@ -233,6 +315,14 @@ html.studio-shell-active.tauri-window #root {
   }
   .profile-grid {
     grid-template-columns: 1fr;
+  }
+  .lesson-confirmation-panel > header,
+  .lesson-confirmation-panel article {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .lesson-confirmation-panel article > div {
+    width: 100%;
   }
 }
 .inbox-actions button {

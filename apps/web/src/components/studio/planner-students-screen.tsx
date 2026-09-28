@@ -61,9 +61,13 @@ export function PlannerStudentsScreen() {
         onBack={() => setSelectedId(null)}
         onEdit={() => setEditingStudent(selected)}
         onLesson={setEditingLesson}
+        onSetLessonStatus={(eventId, status) =>
+          lessons.setStatus.mutateAsync({ eventId, status })
+        }
         onAddSchedule={() => setAddingSchedule(true)}
         onRemoveSchedule={(id) => students.removeSchedule.mutateAsync(id)}
         scheduleBusy={students.removeSchedule.isPending}
+        lessonStatusBusy={lessons.setStatus.isPending}
       >
         {editingStudent ? (
           <StudentEditor
@@ -218,9 +222,11 @@ function StudentProfile({
   onBack,
   onEdit,
   onLesson,
+  onSetLessonStatus,
   onAddSchedule,
   onRemoveSchedule,
   scheduleBusy,
+  lessonStatusBusy,
   children,
 }: {
   student: PlannerStudentRow;
@@ -228,9 +234,14 @@ function StudentProfile({
   onBack: () => void;
   onEdit: () => void;
   onLesson: (lesson: PlannerLessonRow) => void;
+  onSetLessonStatus: (
+    eventId: string,
+    status: "held" | "cancelled"
+  ) => Promise<unknown>;
   onAddSchedule: () => void;
   onRemoveSchedule: (id: string) => Promise<unknown>;
   scheduleBusy: boolean;
+  lessonStatusBusy: boolean;
   children: React.ReactNode;
 }) {
   const held = lessons
@@ -241,6 +252,16 @@ function StudentProfile({
       lesson.notes?.status === "scheduled" &&
       new Date(lesson.starts_at) > new Date()
   );
+  const awaitingConfirmation = lessons
+    .filter(
+      (lesson) =>
+        lesson.notes?.status === "scheduled" &&
+        new Date(lesson.ends_at) < new Date()
+    )
+    .sort(
+      (first, second) =>
+        new Date(second.starts_at).getTime() - new Date(first.starts_at).getTime()
+    );
   const schedule = student.schedules.filter((item) => item.active);
   return (
     <section className="student-profile">
@@ -278,6 +299,48 @@ function StudentProfile({
           <p>Хранится у конкретного урока</p>
         </section>
       </div>
+      {awaitingConfirmation.length ? (
+        <section className="lesson-confirmation-panel">
+          <header>
+            <div>
+              <span>ПРОШЕДШИЕ УРОКИ · {awaitingConfirmation.length}</span>
+              <h2>Урок состоялся?</h2>
+            </div>
+            <p>После подтверждения ДЗ появится в карточке ученика.</p>
+          </header>
+          <div>
+            {awaitingConfirmation.map((lesson) => (
+              <article key={lesson.id}>
+                <button
+                  className="lesson-confirmation-details"
+                  onClick={() => onLesson(lesson)}
+                >
+                  <strong>{dateFormatter.format(new Date(lesson.starts_at))}</strong>
+                  <span>{lesson.notes?.homework || "ДЗ не задано"}</span>
+                </button>
+                <div>
+                  <button
+                    className="lesson-confirmation-held"
+                    disabled={lessonStatusBusy}
+                    onClick={() => void onSetLessonStatus(lesson.id, "held")}
+                  >
+                    <Check size={15} /> Состоялся
+                  </button>
+                  <button
+                    className="lesson-confirmation-cancelled"
+                    disabled={lessonStatusBusy}
+                    onClick={() =>
+                      void onSetLessonStatus(lesson.id, "cancelled")
+                    }
+                  >
+                    Не состоялся
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section className="student-schedule">
         <header>
           <div>

@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import "./studio-dashboard.css";
+import "./today-cards.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
 import { PlannerCollectionsScreen } from "./planner-collections-screen";
 import { PlannerSleepScreen } from "./planner-sleep-screen";
@@ -734,6 +735,7 @@ function PlannerScreen({
       {!isEveningReview ? (
         <div className="planner-dashboard-review">
           <MorningReviewScreen
+            tasks={tasks}
             inboxItems={inboxItems}
             pendingLessons={pendingLessons}
             onConfirmLesson={onConfirmLesson}
@@ -1581,11 +1583,13 @@ function InboxCollectionPicker({
 }
 
 function MorningReviewScreen({
+  tasks,
   inboxItems,
   pendingLessons,
   onConfirmLesson,
   onNavigate,
 }: {
+  tasks: Task[];
   inboxItems: PlannerInboxRow[];
   pendingLessons: PlannerLessonRow[];
   onConfirmLesson: (
@@ -1594,7 +1598,7 @@ function MorningReviewScreen({
   ) => Promise<unknown>;
   onNavigate: (screen: Screen) => void;
 }) {
-  const mailItems = inboxItems.filter((item) => item.source === "yandex_mail");
+  const important = tasks.filter((task) => !task.done).slice(0, 3);
 
   return (
     <section className="daily-review morning-review">
@@ -1605,26 +1609,10 @@ function MorningReviewScreen({
         </div>
         <p>Что важно, как ты входишь в день и что захочется закрыть вечером.</p>
       </div>
-      <div className="morning-grid morning-mail-grid">
-        <section className="review-panel mail-panel morning-mail-panel">
-          <span>ПОЧТА · {mailItems.length} СВЕЖИХ</span>
-          <h2>Посмотреть потом</h2>
-          <div className="review-mail-list">
-            {mailItems.slice(0, 5).map((item) => (
-              <button key={item.id} onClick={() => onNavigate("inbox")}>
-                <FileText size={15} />
-                <span>{item.title}</span>
-                <ChevronRight size={14} />
-              </button>
-            ))}
-            {!mailItems.length ? (
-              <small>Новых писем для разбора нет</small>
-            ) : null}
-          </div>
-          <button className="quiet-link" onClick={() => onNavigate("inbox")}>
-            Открыть входящие <ChevronRight size={14} />
-          </button>
-        </section>
+      <div className="today-cards">
+        <section className="review-panel"><span>ВАЖНО СЕГОДНЯ</span><h2>{important.length ? "Выбери главное" : "Свободный день"}</h2><div className="today-task-list">{important.map((task) => <button key={task.id}><CircleCheck size={15}/>{task.title}</button>)}{!important.length ? <small>Нет незавершённых задач. Можно не добавлять ничего лишнего.</small> : null}</div></section>
+        <button className="review-panel today-link-card" onClick={() => onNavigate("sleep")}><span>КАК Я ВХОЖУ В ДЕНЬ</span><h2>Сон и состояние</h2><p>Отметь ночь и оцени энергию, когда будет удобно.</p><ChevronRight size={17}/></button>
+        <button className="review-panel today-link-card" onClick={() => onNavigate("day")}><span>ЗАКРЫТЬ ВЕЧЕРОМ</span><h2>Карточка дня</h2><p>Тренировка, привычки, вес и одна мысль о дне.</p><ChevronRight size={17}/></button>
       </div>
       {pendingLessons.length ? (
         <section className="lesson-confirmations">

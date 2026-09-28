@@ -1,26 +1,26 @@
 import * as React from "react";
 import { BarChart3, Dumbbell, MoonStar, TrendingUp } from "lucide-react";
 import { usePlannerDailyCards } from "@/hooks/use-planner-daily-cards";
+import { type PlannerSleepEntry, usePlannerSleepEntries } from "@/hooks/use-planner-sleep-entries";
 import "./planner-analytics-screen.css";
 
-type Sleep = { date: string; bedtime: string; wakeTime: string; dayReport?: { energy: number; mood: number } };
+type Sleep = PlannerSleepEntry;
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 const addDays = (date: string, n: number) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const dates = (days: number) => Array.from({ length: days }, (_, i) => addDays(today(), i - days + 1));
 const minutes = (bed: string, wake: string) => { const [bh = 0, bm = 0] = bed.split(":").map(Number), [wh = 0, wm = 0] = wake.split(":").map(Number); let end = wh * 60 + wm, start = bh * 60 + bm; if (end <= start) end += 1440; return end - start; };
-const readSleep = (): Sleep[] => { try { const raw: unknown = JSON.parse(localStorage.getItem("nplan-sleep-entries") ?? "[]"); return Array.isArray(raw) ? raw.filter((v): v is Sleep => Boolean(v && typeof v === "object" && (v as Sleep).date && (v as Sleep).bedtime && (v as Sleep).wakeTime)) : []; } catch { return []; } };
 const short = (v?: number) => v ? `${Math.floor(v / 60)}ч ${String(v % 60).padStart(2, "0")}м` : "—";
 const avg = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 const demoEnabled = () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1";
-const demoSleep = (): Sleep[] => dates(7).map((date, index) => ({ date, bedtime: ["23:35", "00:20", "23:10", "00:05", "23:45", "01:10", "23:30"][index]!, wakeTime: ["07:20", "07:50", "06:55", "08:10", "07:30", "09:05", "07:15"][index]!, dayReport: { energy: [7, 5, 8, 6, 7, 4, 8][index]!, mood: [7, 5, 8, 6, 7, 4, 8][index]! } }));
+const demoSleep = (): Sleep[] => dates(7).map((date, index) => ({ id: `demo-sleep-${date}`, date, bedtime: ["23:35", "00:20", "23:10", "00:05", "23:45", "01:10", "23:30"][index]!, wakeTime: ["07:20", "07:50", "06:55", "08:10", "07:30", "09:05", "07:15"][index]!, awakenings: 0, dayReport: { energy: [7, 5, 8, 6, 7, 4, 8][index]!, sleepiness: 4, clarity: 7, mood: [7, 5, 8, 6, 7, 4, 8][index]! } }));
 
 export function PlannerAnalyticsScreen() {
   const [range, setRange] = React.useState<30 | 90>(30);
   const [metric, setMetric] = React.useState<"sleep" | "energy" | "weight">("sleep");
   const cardsQuery = usePlannerDailyCards(addDays(today(), -89));
-  const [sleep, setSleep] = React.useState<Sleep[]>([]);
+  const sleepQuery = usePlannerSleepEntries();
   const demo = demoEnabled();
-  React.useEffect(() => { if (demo) { setSleep(demoSleep()); return; } setSleep(readSleep()); const update = () => setSleep(readSleep()); window.addEventListener("nplan-sleep-entry-changed", update); return () => window.removeEventListener("nplan-sleep-entry-changed", update); }, [demo]);
+  const sleep = demo ? demoSleep() : sleepQuery.data ?? [];
   const cards = demo ? dates(7).map((day, index) => ({ id: `demo-${day}`, day, workout_type: [null, "зал", null, "бег", null, null, "йога"][index], workout_minutes: [null, 50, null, 35, null, null, 45][index], activity_note: null, had_sex: null, alcohol_units: [null, null, 2, null, null, 3, null][index], cigarettes: null, ate_junk_food: [false, false, true, false, false, true, false][index], weight_kg: 74.2 - index * 0.05, note: null })) : cardsQuery.data ?? [];
   const cardByDay = React.useMemo(() => new Map(cards.map((c) => [c.day, c])), [cards]);
   const sleepByDay = React.useMemo(() => new Map(sleep.map((s) => [s.date, s])), [sleep]);

@@ -804,7 +804,15 @@ function TaskHorizon({
   const active = tasks.filter((task) => !task.done);
   const overdue = active.filter((task) => task.due === "overdue");
   const today = active.filter((task) => task.due === "today");
-  const future = active.filter((task) => task.due === "future");
+  const todayKey = localDateString();
+  const horizonEnd = localDateString(addCalendarDays(new Date(), 3));
+  const future = active.filter(
+    (task) =>
+      task.due === "future" &&
+      task.dueDate !== null &&
+      task.dueDate > todayKey &&
+      task.dueDate <= horizonEnd
+  );
 
   return (
     <section className="task-horizon" aria-label="Задачи по срокам">

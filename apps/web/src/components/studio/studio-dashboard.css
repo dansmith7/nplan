@@ -386,15 +386,15 @@ html.studio-shell-active.tauri-window #root {
   cursor: pointer;
 }
 .home-calendar-grid {
-  height: 204px;
+  height: 260px;
   display: grid;
   grid-template-columns: 48px repeat(7, minmax(100px, 1fr));
   border-top: 1px solid #e1ddd5;
   background: repeating-linear-gradient(
     to bottom,
     transparent 0,
-    transparent 40px,
-    #e5e1d9 41px
+    transparent 51px,
+    #e5e1d9 52px
   );
 }
 .home-hours {

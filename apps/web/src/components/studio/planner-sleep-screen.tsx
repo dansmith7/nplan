@@ -47,6 +47,12 @@ function readEntries(): Entry[] {
   } catch { return []; }
 }
 function dateFromOffset(offset: number) { const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); }
+function demoEntries(): Entry[] {
+  return [
+    { id: "sleep-demo-previous", date: dateFromOffset(-1), bedtime: "00:10", wakeTime: "07:05", awakenings: 2, dayReport: { energy: 3, sleepiness: 8, clarity: 4, mood: 3 } },
+    { id: "sleep-demo-current", date: todayKey(), bedtime: "23:45", wakeTime: "07:20", awakenings: 1 },
+  ];
+}
 function weekday(date: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(date + "T12:00:00")).slice(0, 2).toUpperCase(); }
 function timingMinutes(entry: Entry) { const [hours = 0, minutes = 0] = entry.bedtime.split(":").map(Number); const value = hours * 60 + minutes; return value < 12 * 60 ? value + 1440 : value; }
 function nightIndex(entry: Entry, history: Entry[]) {
@@ -69,7 +75,13 @@ function indexFor(entry: Entry, history: Entry[]) {
 export function PlannerSleepScreen() {
   const [entries, setEntries] = React.useState<Entry[]>([]);
   const [editing, setEditing] = React.useState<Entry | null | undefined>(undefined);
-  React.useEffect(() => setEntries(readEntries()), []);
+  React.useEffect(() => {
+    const existing = readEntries();
+    const shouldShowDemo = new URLSearchParams(window.location.search).has("sleep-demo");
+    const next = shouldShowDemo && !existing.length ? demoEntries() : existing;
+    if (next !== existing) localStorage.setItem(entriesKey, JSON.stringify(next));
+    setEntries(next);
+  }, []);
   const sorted = React.useMemo(() => [...entries].sort((a, b) => b.date.localeCompare(a.date)), [entries]);
   const today = entries.find((entry) => entry.date === todayKey());
   const week = React.useMemo(() => Array.from({ length: 7 }, (_, index) => dateFromOffset(index - 6)), []);

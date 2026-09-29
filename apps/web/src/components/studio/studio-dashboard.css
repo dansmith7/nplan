@@ -1157,7 +1157,7 @@ html.studio-shell-active.tauri-window #root {
   font-size: 14px;
 }
 .calendar-board {
-  height: 500px;
+  height: 660px;
   position: relative;
   display: grid;
   grid-template-columns: 53px repeat(7, minmax(112px, 1fr));
@@ -1167,8 +1167,8 @@ html.studio-shell-active.tauri-window #root {
   background: repeating-linear-gradient(
     to bottom,
     #f4f1eb 0,
-    #f4f1eb 99px,
-    #e3dfd7 100px
+    #f4f1eb 131px,
+    #e3dfd7 132px
   );
 }
 .time-scale {

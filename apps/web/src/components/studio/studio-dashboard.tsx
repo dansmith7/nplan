@@ -178,11 +178,24 @@ function weekDayDates(weekStart: Date) {
   );
 }
 
+const calendarStartMinutes = 9 * 60;
+const calendarEndMinutes = 22 * 60;
+const calendarHalfHourSlots =
+  (calendarEndMinutes - calendarStartMinutes) / 30;
+
 function eventTop(time: string) {
   const [hours = 9, minutes = 0] = time.split(":").map(Number);
   const minuteOfDay = hours * 60 + minutes;
-  const clamped = Math.min(18 * 60, Math.max(9 * 60, minuteOfDay));
-  return 10 + ((clamped - 9 * 60) / (9 * 60)) * 79;
+  const clamped = Math.min(
+    calendarEndMinutes,
+    Math.max(calendarStartMinutes, minuteOfDay)
+  );
+  return (
+    10 +
+    ((clamped - calendarStartMinutes) /
+      (calendarEndMinutes - calendarStartMinutes)) *
+      79
+  );
 }
 
 function toPlannerEvent(
@@ -1121,16 +1134,22 @@ function CalendarScreen({
       availableHeight,
       Math.max(0, clientY - rect.top - headerHeight)
     );
-    const halfHourSlot = Math.round((offset / availableHeight) * 18);
-    const safeSlot = Math.min(17, Math.max(0, halfHourSlot));
-    const hour = 9 + Math.floor(safeSlot / 2);
-    const minutes = safeSlot % 2 === 0 ? "00" : "30";
+    const halfHourSlot = Math.round(
+      (offset / availableHeight) * calendarHalfHourSlots
+    );
+    const safeSlot = Math.min(
+      calendarHalfHourSlots,
+      Math.max(0, halfHourSlot)
+    );
+    const totalMinutes = calendarStartMinutes + safeSlot * 30;
+    const hour = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60 === 0 ? "00" : "30";
 
     return {
       ...source,
       day,
       time: `${String(hour).padStart(2, "0")}:${minutes}`,
-      top: 10 + (safeSlot / 17) * 79,
+      top: 10 + (safeSlot / calendarHalfHourSlots) * 79,
     };
   };
   const placementAtPointer = (
@@ -1195,7 +1214,7 @@ function CalendarScreen({
       </p>
       <div className="calendar-board">
         <div className="time-scale">
-          {["09:00", "11:00", "13:00", "15:00", "17:00"].map((time) => (
+          {["09:00", "12:00", "15:00", "18:00", "21:00"].map((time) => (
             <span key={time}>{time}</span>
           ))}
         </div>

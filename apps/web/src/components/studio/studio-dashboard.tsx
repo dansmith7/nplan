@@ -1,12 +1,10 @@
 import * as React from "react";
 import {
   Bell,
-  BedDouble,
-  ChartNoAxesCombined,
   CalendarHeart,
+  CalendarDays,
   BookOpen,
   Cake,
-  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -67,7 +65,8 @@ import {
 } from "@/hooks/use-planner-inbox";
 import { useLessonConfirmationActions } from "@/hooks/use-planner-lessons";
 
-type Screen = "planner" | "calendar" | "inbox" | "students" | "collections" | "sleep" | "day" | "analytics";
+type Screen = "planner" | "journal" | "inbox" | "students" | "collections";
+type JournalTab = "week" | "day" | "picture";
 type Category =
   | "Китай"
   | "Реестр"
@@ -294,6 +293,7 @@ export function StudioDashboard() {
       ? displayName.split(" ")[0]
       : "Собранно.";
   const [screen, setScreen] = React.useState<Screen>("planner");
+  const [journalTab, setJournalTab] = React.useState<JournalTab>("day");
   React.useEffect(() => {
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -414,7 +414,7 @@ export function StudioDashboard() {
     icon: React.ReactNode;
   }> = [
     { id: "planner", label: "Планнер", icon: <Sparkles size={17} /> },
-    { id: "calendar", label: "Календарь", icon: <CalendarDays size={17} /> },
+    { id: "journal", label: "День", icon: <CalendarHeart size={17} /> },
     { id: "inbox", label: "Входящие", icon: <Inbox size={17} /> },
     { id: "students", label: "Ученики", icon: <Users size={17} /> },
     {
@@ -422,9 +422,6 @@ export function StudioDashboard() {
       label: "Коллекции",
       icon: <LibraryBig size={17} />,
     },
-    { id: "sleep", label: "Сон", icon: <BedDouble size={17} /> },
-    { id: "day", label: "День", icon: <CalendarHeart size={17} /> },
-    { id: "analytics", label: "Аналитика", icon: <ChartNoAxesCombined size={17} /> },
   ];
   return (
     <div className="planner-shell">
@@ -517,10 +514,16 @@ export function StudioDashboard() {
                   setNewTaskCategory(category);
                 }}
                 onNavigate={setScreen}
+                onOpenCalendar={() => {
+                  setJournalTab("week");
+                  setScreen("journal");
+                }}
               />
             ) : null}
-            {screen === "calendar" ? (
-              <CalendarScreen
+            {screen === "journal" ? (
+              <PlannerJournalScreen
+                tab={journalTab}
+                onTabChange={setJournalTab}
                 events={calendarEvents}
                 weekStart={calendarWeekStart}
                 isLoading={plannerCalendar.isLoading}
@@ -560,9 +563,6 @@ export function StudioDashboard() {
             {screen === "collections" ? (
               <PlannerCollectionsScreen initialType={collectionsInitialType} />
             ) : null}
-            {screen === "sleep" ? <PlannerSleepScreen /> : null}
-            {screen === "day" ? <PlannerDayScreen /> : null}
-            {screen === "analytics" ? <PlannerAnalyticsScreen /> : null}
           </div>
         </main>
       </div>
@@ -656,6 +656,7 @@ function PlannerScreen({
   onOpen,
   onAdd,
   onNavigate,
+  onOpenCalendar,
 }: {
   tasks: Task[];
   calendarEvents: PlannerEvent[];
@@ -667,6 +668,7 @@ function PlannerScreen({
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
   onNavigate: (screen: Screen) => void;
+  onOpenCalendar: () => void;
 }) {
   const [currentTime, setCurrentTime] = React.useState(() => new Date());
   React.useEffect(() => {
@@ -698,7 +700,7 @@ function PlannerScreen({
       <HomeCalendar
         events={calendarEvents}
         weekStart={calendarWeekStart}
-        onOpen={() => onNavigate("calendar")}
+        onOpen={onOpenCalendar}
       />
       <TaskHorizon
         tasks={tasks}
@@ -748,6 +750,78 @@ function PlannerScreen({
         </div>
       ) : null}
     </>
+  );
+}
+
+function PlannerJournalScreen({
+  tab,
+  onTabChange,
+  events,
+  weekStart,
+  isLoading,
+  onWeekChange,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onLesson,
+}: {
+  tab: JournalTab;
+  onTabChange: (tab: JournalTab) => void;
+  events: PlannerEvent[];
+  weekStart: Date;
+  isLoading: boolean;
+  onWeekChange: (weekStart: Date) => void;
+  onCreate: (event: PlannerEvent) => Promise<unknown>;
+  onUpdate: (event: PlannerEvent) => Promise<unknown>;
+  onDelete: (id: string) => Promise<unknown>;
+  onLesson: (lesson: PlannerEvent) => void;
+}) {
+  return (
+    <section className="journal-screen">
+      <header className="journal-heading">
+        <div>
+          <span>ЛИЧНАЯ БАЗА НАБЛЮДЕНИЙ</span>
+          <h1>День.</h1>
+          <p>Сон, события и заметки о дне — в одном месте.</p>
+        </div>
+        <nav className="journal-tabs" aria-label="Разделы дня">
+          {(
+            [
+              ["week", "Неделя"],
+              ["day", "День"],
+              ["picture", "Картина"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              className={tab === id ? "active" : ""}
+              key={id}
+              onClick={() => onTabChange(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      </header>
+      {tab === "week" ? (
+        <CalendarScreen
+          events={events}
+          weekStart={weekStart}
+          isLoading={isLoading}
+          onWeekChange={onWeekChange}
+          onCreate={onCreate}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+          onLesson={onLesson}
+        />
+      ) : null}
+      {tab === "day" ? (
+        <div className="journal-day-content">
+          <PlannerDayScreen />
+          <PlannerSleepScreen />
+        </div>
+      ) : null}
+      {tab === "picture" ? <PlannerAnalyticsScreen /> : null}
+    </section>
   );
 }
 

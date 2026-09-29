@@ -73,6 +73,62 @@ html.studio-shell-active.tauri-window #root {
   gap: var(--space-3);
   margin: var(--space-4) 0;
 }
+.journal-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 1160px;
+  margin: 0 auto var(--space-4);
+}
+.journal-heading span {
+  display: block;
+  color: #969289;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+}
+.journal-heading h1 {
+  margin: 7px 0;
+  font: 400 52px/0.9 Georgia;
+  letter-spacing: -0.06em;
+}
+.journal-heading p {
+  margin: 0;
+  color: #aaa59c;
+}
+.journal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.journal-tabs button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #aaa59c;
+  font: 600 13px TTCommons;
+  cursor: pointer;
+}
+.journal-tabs button.active {
+  background: var(--paper);
+  color: var(--ink);
+}
+.journal-day-content {
+  display: grid;
+  gap: var(--space-5);
+}
+.journal-day-content .day-screen,
+.journal-day-content .sleep-screen,
+.journal-screen > .calendar-screen,
+.journal-screen > .analytics-screen {
+  padding-top: 0;
+}
 .profile-hero > div:nth-child(2) {
   flex: 1;
 }
@@ -315,6 +371,10 @@ html.studio-shell-active.tauri-window #root {
   }
   .profile-grid {
     grid-template-columns: 1fr;
+  }
+  .journal-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
   .lesson-confirmation-panel > header,
   .lesson-confirmation-panel article {

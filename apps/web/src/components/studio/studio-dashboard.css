@@ -78,8 +78,9 @@ html.studio-shell-active.tauri-window #root {
   align-items: end;
   justify-content: space-between;
   gap: var(--space-4);
-  max-width: 1160px;
-  margin: 0 auto var(--space-4);
+  width: 100%;
+  max-width: none;
+  margin: 0 0 var(--space-4);
 }
 .journal-heading span {
   display: block;
@@ -127,7 +128,14 @@ html.studio-shell-active.tauri-window #root {
 .journal-day-content .sleep-screen,
 .journal-screen > .calendar-screen,
 .journal-screen > .analytics-screen {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
   padding-top: 0;
+}
+.journal-day-content .day-screen,
+.journal-day-content .sleep-screen {
+  padding-inline: 0;
 }
 .profile-hero > div:nth-child(2) {
   flex: 1;

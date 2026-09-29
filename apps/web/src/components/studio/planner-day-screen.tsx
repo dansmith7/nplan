@@ -2,6 +2,7 @@ import * as React from "react";
 import { Apple, Check, ChevronLeft, ChevronRight, Dumbbell, Heart, Scale, Sparkles, Wine } from "lucide-react";
 import { type DailyCardInput, usePlannerDailyCard } from "@/hooks/use-planner-daily-card";
 import "./planner-day-screen.css";
+import "./planner-day-embedded.css";
 
 const todayKey = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 const shiftDay = (day: string, offset: number) => {
@@ -13,7 +14,7 @@ const formatDay = (day: string) => new Intl.DateTimeFormat("ru-RU", { weekday: "
 const emptyCard = (day: string): DailyCardInput => ({ day, workout_type: null, workout_minutes: null, activity_note: null, had_sex: null, alcohol_units: null, cigarettes: null, ate_junk_food: null, weight_kg: null, note: null });
 const parseNumber = (value: string) => value === "" ? null : Number(value);
 
-export function PlannerDayScreen() {
+export function PlannerDayScreen({ embedded = false }: { embedded?: boolean }) {
   const [day, setDay] = React.useState(todayKey);
   const dailyCard = usePlannerDailyCard(day);
   const [draft, setDraft] = React.useState<DailyCardInput>(() => emptyCard(day));
@@ -35,7 +36,7 @@ export function PlannerDayScreen() {
   };
   const isToday = day === todayKey();
   return <section className="day-screen">
-    <header className="day-heading"><div><span>ЛИЧНАЯ БАЗА НАБЛЮДЕНИЙ</span><h1>День.</h1><p>Короткая запись о контексте — без оценок и серии достижений.</p></div><button className="day-save" disabled={dailyCard.save.isPending} onClick={() => void save()}><Check size={17}/>{dailyCard.save.isPending ? "Сохраняю" : "Сохранить"}</button></header>
+    {embedded ? <div className="day-embedded-actions"><button className="day-save" disabled={dailyCard.save.isPending} onClick={() => void save()}><Check size={17}/>{dailyCard.save.isPending ? "Сохраняю" : "Сохранить"}</button></div> : <header className="day-heading"><div><span>ЛИЧНАЯ БАЗА НАБЛЮДЕНИЙ</span><h1>День.</h1><p>Короткая запись о контексте — без оценок и серии достижений.</p></div><button className="day-save" disabled={dailyCard.save.isPending} onClick={() => void save()}><Check size={17}/>{dailyCard.save.isPending ? "Сохраняю" : "Сохранить"}</button></header>}
     <nav className="day-switcher" aria-label="Выбрать день"><button aria-label="Предыдущий день" onClick={() => setDay((value) => shiftDay(value, -1))}><ChevronLeft size={18}/></button><label><span>{isToday ? "СЕГОДНЯ" : "ДЕНЬ"}</span><input type="date" value={day} onChange={(event) => setDay(event.target.value)} /><strong>{formatDay(day)}</strong></label><button aria-label="Следующий день" disabled={isToday} onClick={() => setDay((value) => shiftDay(value, 1))}><ChevronRight size={18}/></button></nav>
     <div className="day-grid">
       <section className="day-panel day-activity"><header><Dumbbell size={18}/><div><span>АКТИВНОСТЬ</span><h2>Что было в дне</h2></div></header><div className="day-fields two"><label>Тренировка<input placeholder="зал, бег, йога" value={draft.workout_type ?? ""} onChange={(event) => set("workout_type", event.target.value || null)} /></label><label>Минуты<input type="number" min="1" max="600" placeholder="—" value={draft.workout_minutes ?? ""} onChange={(event) => set("workout_minutes", parseNumber(event.target.value))} /></label></div><label className="day-full-field">Что ещё делал?<textarea placeholder="Прогулка, работа допоздна, встреча, поездка…" value={draft.activity_note ?? ""} onChange={(event) => set("activity_note", event.target.value || null)} /></label></section>

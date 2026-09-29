@@ -1,0 +1,11 @@
+.day-embedded-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+}
+
+@media (max-width: 760px) {
+  .day-embedded-actions .day-save {
+    width: auto;
+  }
+}

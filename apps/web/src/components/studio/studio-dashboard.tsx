@@ -816,7 +816,7 @@ function PlannerJournalScreen({
       ) : null}
       {tab === "day" ? (
         <div className="journal-day-content">
-          <PlannerDayScreen />
+          <PlannerDayScreen embedded />
           <PlannerSleepScreen />
         </div>
       ) : null}

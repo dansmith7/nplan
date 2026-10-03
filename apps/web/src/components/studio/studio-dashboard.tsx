@@ -199,6 +199,28 @@ function eventTop(time: string) {
   );
 }
 
+function formatCalendarTime(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function arrangeBirthdaySlots(events: PlannerEvent[]) {
+  const nextSlotByDay = new Map<number, number>();
+  return events.map((event) => {
+    if (!event.isBirthday) return event;
+    const slot = nextSlotByDay.get(event.day) ?? 0;
+    nextSlotByDay.set(event.day, slot + 1);
+    const time = formatCalendarTime(
+      Math.min(calendarEndMinutes - 30, calendarStartMinutes + slot * 60)
+    );
+    return { ...event, time, top: eventTop(time) };
+  });
+}
+
 function toPlannerEvent(
   event: PlannerCalendarEventRow,
   weekStart: Date
@@ -270,11 +292,13 @@ export function StudioDashboard() {
   );
   const plannerCalendar = usePlannerCalendarEvents(calendarRange);
   const calendarEvents = React.useMemo(
-    () =>
-      (plannerCalendar.data ?? []).flatMap((event) => {
+    () => {
+      const mapped = (plannerCalendar.data ?? []).flatMap((event) => {
         const mapped = toPlannerEvent(event, calendarWeekStart);
         return mapped ? [mapped] : [];
-      }),
+      });
+      return arrangeBirthdaySlots(mapped);
+    },
     [calendarWeekStart, plannerCalendar.data]
   );
   const [headerNow, setHeaderNow] = React.useState(() => new Date());

@@ -147,6 +147,7 @@ type PlannerEvent = {
     homework: string | null;
     status: "scheduled" | "held" | "cancelled";
   } | null;
+  isBirthday: boolean;
   isNew?: boolean;
 };
 
@@ -228,6 +229,7 @@ function toPlannerEvent(
     description: event.description,
     recurrence: event.recurrence,
     lessonNotes: event.notes,
+    isBirthday: Boolean(event.collection_item_id),
   };
 }
 
@@ -1001,7 +1003,9 @@ function HomeCalendar({
               .filter((event) => event.day === index)
               .map((event) => (
                 <i
-                  className={`home-event ${event.kind}`}
+                  className={`home-event ${event.kind} ${
+                    event.isBirthday ? "birthday" : ""
+                  }`}
                   style={{ top: `${event.top}%` }}
                   key={event.id}
                 >
@@ -1183,6 +1187,7 @@ function CalendarScreen({
     description: null,
     recurrence: "none",
     lessonNotes: null,
+    isBirthday: false,
     isNew: true,
   });
   return (
@@ -1240,6 +1245,7 @@ function CalendarScreen({
                 <button
                   key={event.id}
                   onPointerDown={(pointerEvent) => {
+                    if (event.isBirthday) return;
                     if (pointerEvent.button !== 0) return;
                     dragGesture.current = {
                       pointerId: pointerEvent.pointerId,
@@ -1302,6 +1308,10 @@ function CalendarScreen({
                   }}
                   onPointerCancel={clearDrag}
                   onClick={(clickEvent) => {
+                    if (event.isBirthday) {
+                      clickEvent.preventDefault();
+                      return;
+                    }
                     if (suppressEventClick.current) {
                       clickEvent.preventDefault();
                       return;
@@ -1312,11 +1322,19 @@ function CalendarScreen({
                   }}
                   style={{ top: `${event.top}%` }}
                   className={`calendar-event ${event.kind} ${
+                    event.isBirthday ? "birthday" : ""
+                  } ${
                     dragged === event.id ? "is-dragging" : ""
                   }`}
                 >
                   <small>{event.time}</small>
-                  {event.title}
+                  {event.isBirthday ? (
+                    <span className="birthday-event-title">
+                      <Cake size={13} strokeWidth={2} /> {event.title}
+                    </span>
+                  ) : (
+                    event.title
+                  )}
                 </button>
               ))}
           </div>
@@ -2232,7 +2250,7 @@ function NotificationSettingsModal({ onClose }: { onClose: () => void }) {
       window.dispatchEvent(new Event("nplan-notifications-changed"));
       await showNotification({
         title: "NPlan готов напоминать",
-        body: "Утренняя и вечерняя сводки, дедлайны и уроки включены.",
+        body: "Сводки, дни рождения, дедлайны и уроки включены.",
       });
     } else if (nextPermission === "denied") {
       setError("Разрешите уведомления для NPlan в настройках macOS.");
@@ -2281,6 +2299,10 @@ function NotificationSettingsModal({ onClose }: { onClose: () => void }) {
             <div>
               <b>10:15</b>
               <span>Утренняя сводка</span>
+            </div>
+            <div>
+              <b>09:00</b>
+              <span>День рождения из коллекции</span>
             </div>
             <div>
               <b>17:50</b>

@@ -286,7 +286,12 @@ async function runNotificationCheck(profile: PlannerProfile, userId: string) {
     });
   }
 
-  for (const event of birthdayResult.data) {
+  const birthdayEvents = birthdayResult.data.filter((event) => {
+    const startsAt = new Date(event.starts_at).getTime();
+    return startsAt <= currentDate.getTime() && startsAt > pastWindow.getTime();
+  });
+
+  for (const event of birthdayEvents) {
     await deliverOnce({
       userId,
       kind: "birthday_reminder",

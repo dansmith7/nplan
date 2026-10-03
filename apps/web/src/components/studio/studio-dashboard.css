@@ -602,6 +602,10 @@ html.studio-shell-active.tauri-window #root {
   background: #e4e0d9;
   color: #56514a;
 }
+.home-event.birthday {
+  background: #efd8cb;
+  color: #6a3829;
+}
 .modal-two-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1228,6 +1232,16 @@ html.studio-shell-active.tauri-window #root {
 .calendar-event.lesson {
   background: var(--today);
   color: #332916;
+}
+.calendar-event.birthday {
+  background: #efd8cb;
+  color: #6a3829;
+  cursor: default;
+}
+.birthday-event-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .calendar-event:hover {
   transform: translateY(-1px);

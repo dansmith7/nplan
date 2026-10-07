@@ -51,14 +51,39 @@ function readEntries(): Entry[] {
 function dateFromOffset(offset: number) { const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); }
 function weekday(date: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(date + "T12:00:00")).slice(0, 2).toUpperCase(); }
 function timingMinutes(entry: Entry) { const [hours = 0, minutes = 0] = entry.bedtime.split(":").map(Number); const value = hours * 60 + minutes; return value < 12 * 60 ? value + 1440 : value; }
+function sleepDurationScore(minutes: number) {
+  if (minutes >= 450) return 100;
+  if (minutes >= 420) return Math.round(80 + ((minutes - 420) / 30) * 20);
+  if (minutes >= 360) return Math.round(60 + ((minutes - 360) / 60) * 20);
+  if (minutes >= 300) return Math.round(35 + ((minutes - 300) / 60) * 25);
+  if (minutes >= 240) return Math.round(10 + ((minutes - 240) / 60) * 25);
+  return 0;
+}
+function awakeningScore(awakenings: number) {
+  if (awakenings === 0) return 100;
+  if (awakenings === 1) return 90;
+  if (awakenings === 2) return 85;
+  if (awakenings === 3) return 60;
+  return Math.max(20, 60 - (awakenings - 3) * 10);
+}
+function weekdayLateBedtimePenalty(entry: Entry) {
+  const wakeDay = new Date(`${entry.date}T12:00:00`).getDay();
+  if (wakeDay === 0 || wakeDay === 6) return 0;
+  const bedtime = timingMinutes(entry);
+  if (bedtime <= 26 * 60) return 0;
+  if (bedtime <= 26 * 60 + 30) return 5;
+  if (bedtime <= 27 * 60) return 12;
+  if (bedtime <= 28 * 60) return 22;
+  return 30;
+}
 function nightIndex(entry: Entry, history: Entry[]) {
   const minutes = duration(entry.bedtime, entry.wakeTime);
-  const durationScore = minutes >= 420 ? 100 : Math.max(0, Math.round((minutes / 420) * 100));
+  const durationScore = sleepDurationScore(minutes);
   const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
   const averageTiming = others.length ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length : timingMinutes(entry);
   const timingScore = Math.max(0, Math.round(100 - Math.abs(timingMinutes(entry) - averageTiming) / 1.2));
-  const awakeningsScore = [100, 85, 68, 52, 40][Math.min(entry.awakenings, 4)] ?? 40;
-  return Math.round(durationScore * 0.6 + timingScore * 0.25 + awakeningsScore * 0.15);
+  const score = durationScore * 0.6 + timingScore * 0.25 + awakeningScore(entry.awakenings) * 0.15 - weekdayLateBedtimePenalty(entry);
+  return Math.max(0, Math.round(score));
 }
 function dayScore(report: DayReport) {
   return Math.round((report.energy + (11 - report.sleepiness) + report.clarity + report.mood) * 2.5);

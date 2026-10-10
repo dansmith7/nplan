@@ -173,6 +173,27 @@ function localDateKey(value: Date) {
   ].join("-");
 }
 
+function formatEventCount(count: number) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  const noun = lastTwo >= 11 && lastTwo <= 14
+    ? "событий"
+    : last === 1 ? "событие" : last >= 2 && last <= 4 ? "события" : "событий";
+  return `${count} ${noun}`;
+}
+
+function formatWeekRange(dates: Date[]) {
+  const first = dates[0]!;
+  const last = dates[6]!;
+  const monthFor = (date: Date) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" })
+    .formatToParts(date)
+    .find((part) => part.type === "month")?.value ?? "";
+  if (first.getMonth() !== last.getMonth()) {
+    return `${first.getDate()} ${monthFor(first)} — ${last.getDate()} ${monthFor(last)}`;
+  }
+  return `${first.getDate()}—${last.getDate()} ${monthFor(last)}`;
+}
+
 function weekDayDates(weekStart: Date) {
   return Array.from({ length: calendarDays }, (_, index) =>
     addCalendarDays(weekStart, index)
@@ -993,11 +1014,11 @@ function HomeCalendar({
 }) {
   const days = weekDayDates(weekStart);
   const today = localDateKey(new Date());
-  const rangeLabel =
-    `${days[0]!.getDate()}—${days[6]!.getDate()} ${new Intl.DateTimeFormat(
-      "ru-RU",
-      { month: "long" }
-    ).format(days[6]!)}`.toLocaleUpperCase("ru-RU");
+  const previewDayIndex = Math.max(0, days.findIndex((day) => localDateKey(day) === today));
+  const previewEvents = events
+    .filter((event) => event.day === previewDayIndex)
+    .sort((first, second) => first.time.localeCompare(second.time));
+  const rangeLabel = formatWeekRange(days).toLocaleUpperCase("ru-RU");
   return (
     <section className="home-calendar" aria-label="Календарь недели">
       <header>
@@ -1038,6 +1059,20 @@ function HomeCalendar({
               ))}
           </div>
         ))}
+      </div>
+      <div className="home-calendar-mobile">
+        <div className="home-calendar-mobile-date">
+          <strong>{new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(days[previewDayIndex]!)}</strong>
+          <span>{previewEvents.length ? formatEventCount(previewEvents.length) : "Свободный день"}</span>
+        </div>
+        {previewEvents.slice(0, 3).map((event) => (
+          <button type="button" onClick={onOpen} className={`home-calendar-mobile-event ${event.kind}`} key={event.id}>
+            <time>{event.time}</time>
+            <span>{event.title}</span>
+            <ChevronRight size={15} />
+          </button>
+        ))}
+        {previewEvents.length > 3 ? <button type="button" className="home-calendar-mobile-more" onClick={onOpen}>Ещё {previewEvents.length - 3} в календаре</button> : null}
       </div>
     </section>
   );
@@ -1140,14 +1175,18 @@ function CalendarScreen({
   const dates = weekDayDates(weekStart);
   const todayKey = localDateKey(new Date());
   const todayIndex = dates.findIndex((date) => localDateKey(date) === todayKey);
+  const [selectedDay, setSelectedDay] = React.useState(() =>
+    todayIndex >= 0 ? todayIndex : 0
+  );
+  const selectedDate = dates[selectedDay] ?? dates[0]!;
+  const selectedEvents = events
+    .filter((event) => event.day === selectedDay)
+    .sort((first, second) => first.time.localeCompare(second.time));
   const days = dates.map(
     (date) =>
       `${new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date)}, ${date.getDate()}`
   );
-  const rangeLabel = `${dates[0]!.getDate()}—${dates[6]!.getDate()} ${new Intl.DateTimeFormat(
-    "ru-RU",
-    { month: "long" }
-  ).format(dates[6]!)}`;
+  const rangeLabel = formatWeekRange(dates);
   const visibleEvents = events;
   const getPlacement = (
     clientY: number,
@@ -1198,9 +1237,9 @@ function CalendarScreen({
     setDragged(null);
     setDragPreview(null);
   };
-  const createDraft = (): PlannerEvent => ({
+  const createDraft = (day = todayIndex >= 0 ? todayIndex : 0): PlannerEvent => ({
     id: `new-${Date.now()}`,
-    day: todayIndex >= 0 ? todayIndex : 0,
+    day,
     top: eventTop("10:00"),
     title: "",
     time: "10:00",
@@ -1241,6 +1280,92 @@ function CalendarScreen({
         Перетаскивайте события по дням и времени. Во время переноса карточка
         показывает новое место полупрозрачно.
       </p>
+      <div className="mobile-calendar">
+        <div className="mobile-calendar-toolbar">
+          <div>
+            <span>РАСПИСАНИЕ</span>
+            <h2>{new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(selectedDate)}</h2>
+          </div>
+          <button
+            className="mobile-calendar-today"
+            type="button"
+            onClick={() => {
+              const today = new Date();
+              onWeekChange(startOfPlannerWeek(today));
+              setSelectedDay((today.getDay() + 6) % 7);
+            }}
+          >
+            Сегодня
+          </button>
+        </div>
+        <div className="mobile-calendar-week-nav">
+          <button type="button" aria-label="Предыдущая неделя" onClick={() => onWeekChange(addCalendarDays(weekStart, -7))}>
+            <ChevronLeft size={19} />
+          </button>
+          <span>{rangeLabel}</span>
+          <button type="button" aria-label="Следующая неделя" onClick={() => onWeekChange(addCalendarDays(weekStart, 7))}>
+            <ChevronRight size={19} />
+          </button>
+        </div>
+        <div className="mobile-calendar-days" aria-label="Выбрать день недели">
+          {dates.map((date, index) => (
+            <button
+              type="button"
+              key={localDateKey(date)}
+              className={`${selectedDay === index ? "is-selected" : ""} ${todayIndex === index ? "is-today" : ""}`}
+              aria-label={new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(date)}
+              aria-pressed={selectedDay === index}
+              onClick={() => setSelectedDay(index)}
+            >
+              <span>{new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date).replace(".", "")}</span>
+              <b>{date.getDate()}</b>
+              <i aria-hidden="true" className={events.some((event) => event.day === index) ? "has-events" : ""} />
+            </button>
+          ))}
+        </div>
+        <div className="mobile-calendar-day-heading">
+          <div>
+            <span>{localDateKey(selectedDate) === todayKey ? "СЕГОДНЯ" : "ВЫБРАННЫЙ ДЕНЬ"}</span>
+            <h3>{new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(selectedDate)}</h3>
+            <p>{selectedEvents.length ? formatEventCount(selectedEvents.length) : "Событий нет"}</p>
+          </div>
+          <button type="button" aria-label="Добавить событие" onClick={() => setEditing(createDraft(selectedDay))}>
+            <Plus size={20} />
+          </button>
+        </div>
+        {isLoading ? <p className="mobile-calendar-message">Загружаю события…</p> : selectedEvents.length ? (
+          <div className="mobile-calendar-agenda">
+            {selectedEvents.map((event) => (
+              <div className="mobile-calendar-agenda-row" key={event.id}>
+                <time>{event.time}</time>
+                {event.isBirthday ? (
+                  <div className="mobile-calendar-card birthday">
+                    <span>ДЕНЬ РОЖДЕНИЯ</span>
+                    <strong>{event.title}</strong>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`mobile-calendar-card ${event.kind}`}
+                    onClick={() => event.kind === "lesson" ? onLesson(event) : setEditing(event)}
+                  >
+                    <span>{event.kind === "lesson" ? "ЗАНЯТИЕ" : event.kind === "task" ? "ЗАДАЧА" : "СОБЫТИЕ"} · {event.durationMinutes} мин</span>
+                    <strong>{event.title}</strong>
+                    {event.description ? <small>{event.description}</small> : null}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mobile-calendar-empty">
+            <CalendarDays size={22} />
+            <strong>Свободный день</strong>
+            <span>Запланируйте встречу, урок или задачу со временем.</span>
+            <button type="button" onClick={() => setEditing(createDraft(selectedDay))}>Добавить событие</button>
+          </div>
+        )}
+      </div>
       <div className="calendar-board">
         <div className="time-scale">
           {["09:00", "12:00", "15:00", "18:00", "21:00"].map((time) => (
@@ -1340,9 +1465,8 @@ function CalendarScreen({
                       clickEvent.preventDefault();
                       return;
                     }
-                    event.kind === "lesson"
-                      ? onLesson(event)
-                      : setEditing(event);
+                    if (event.kind === "lesson") onLesson(event);
+                    else setEditing(event);
                   }}
                   style={{ top: `${event.top}%` }}
                   className={`calendar-event ${event.kind} ${

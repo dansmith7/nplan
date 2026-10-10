@@ -555,6 +555,9 @@ html.studio-shell-active.tauri-window #root {
     #e5e1d9 52px
   );
 }
+.home-calendar-mobile {
+  display: none;
+}
 .home-hours {
   padding: 9px 8px;
   display: flex;
@@ -1159,6 +1162,9 @@ html.studio-shell-active.tauri-window #root {
   margin: 0 0 var(--space-3);
   color: #99958d;
   font-size: 14px;
+}
+.mobile-calendar {
+  display: none;
 }
 .calendar-board {
   height: 660px;
@@ -2160,10 +2166,54 @@ html.studio-shell-active.tauri-window #root {
 }
 @media (max-width: 760px) {
   .planner-sidebar {
-    width: 56px;
+    inset: auto 0 0;
+    width: 100%;
+    height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    flex-direction: row;
+    border-right: 0;
+    border-top: 1px solid var(--line);
+    z-index: 10;
+  }
+  .planner-mark {
+    display: none;
+  }
+  .planner-sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    width: calc(100% - 46px);
+    height: 100%;
+  }
+  .planner-sidebar nav button {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 0;
+    border-radius: 0;
+  }
+  .planner-sidebar nav span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 10px/1 TTCommons, sans-serif;
+  }
+  .planner-sidebar nav .active {
+    background: #27241e;
+    color: var(--today);
+  }
+  .sidebar-bell {
+    width: 46px;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
   }
   .planner-content {
-    padding-left: 56px;
+    padding-left: 0;
   }
   .planner-header {
     height: 64px;
@@ -2173,8 +2223,11 @@ html.studio-shell-active.tauri-window #root {
     display: none;
   }
   .header-clocks {
-    left: calc(50% - 28px);
+    left: 50%;
     gap: 7px;
+  }
+  .header-date {
+    display: none;
   }
   .world-clock {
     min-width: 86px;
@@ -2183,7 +2236,68 @@ html.studio-shell-active.tauri-window #root {
     font-size: 21px;
   }
   .planner-content main {
-    padding: 32px 20px;
+    padding: 32px 20px calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+  .home-calendar-grid {
+    display: none;
+  }
+  .home-calendar-mobile {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border-top: 1px solid #e1ddd5;
+  }
+  .home-calendar-mobile-date {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 5px 8px;
+    align-items: baseline;
+    margin-bottom: 5px;
+  }
+  .home-calendar-mobile-date strong {
+    font: 400 18px Georgia, serif;
+    text-transform: capitalize;
+  }
+  .home-calendar-mobile-date span {
+    color: #817a70;
+    font: 400 12px TTCommons, sans-serif;
+  }
+  .home-calendar-mobile-event {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 44px;
+    padding: 9px;
+    border: 0;
+    border-left: 3px solid #8e897e;
+    border-radius: 5px;
+    background: #e7e2d9;
+    color: #27241e;
+    text-align: left;
+  }
+  .home-calendar-mobile-event.lesson { border-left-color: #b18b40; }
+  .home-calendar-mobile-event.task { border-left-color: #6e8178; }
+  .home-calendar-mobile-event time {
+    flex: 0 0 auto;
+    color: #696258;
+    font: 600 11px TTCommons, sans-serif;
+  }
+  .home-calendar-mobile-event span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 12px TTCommons, sans-serif;
+  }
+  .home-calendar-mobile-more {
+    justify-self: start;
+    border: 0;
+    background: transparent;
+    color: #655a49;
+    font: 600 12px TTCommons, sans-serif;
   }
   .deadline-strip {
     grid-template-columns: 1fr;
@@ -2199,11 +2313,210 @@ html.studio-shell-active.tauri-window #root {
   .category-scroll {
     margin-right: -20px;
   }
-  .calendar-board {
-    width: 900px;
-  }
   .calendar-screen {
-    overflow-x: auto;
+    overflow: visible;
+  }
+  .calendar-screen > .screen-heading,
+  .calendar-screen > .calendar-hint,
+  .calendar-screen > .calendar-board {
+    display: none;
+  }
+  .mobile-calendar {
+    display: block;
+    min-width: 0;
+  }
+  .mobile-calendar-toolbar,
+  .mobile-calendar-week-nav,
+  .mobile-calendar-day-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mobile-calendar-toolbar {
+    gap: 8px;
+  }
+  .mobile-calendar-toolbar span,
+  .mobile-calendar-day-heading span {
+    color: #a39b8d;
+    font: 600 10px/1 TTCommons, sans-serif;
+    letter-spacing: .14em;
+  }
+  .mobile-calendar-toolbar h2 {
+    margin: 7px 0 0;
+    color: var(--paper);
+    font: 400 33px/1 Georgia, serif;
+    letter-spacing: -.05em;
+    text-transform: capitalize;
+  }
+  .mobile-calendar-today {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 11px;
+    border: 1px solid #e8be6170;
+    border-radius: 7px;
+    background: #e8be6116;
+    color: #e8be61;
+    font: 600 12px TTCommons, sans-serif;
+  }
+  .mobile-calendar-week-nav {
+    margin: 25px 0 10px;
+    color: #aaa399;
+    font: 600 13px TTCommons, sans-serif;
+  }
+  .mobile-calendar-week-nav button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #ffffff26;
+    border-radius: 8px;
+    background: #1b1a18;
+    color: var(--paper);
+  }
+  .mobile-calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+    padding: 8px 4px;
+    border: 1px solid #34312c;
+    border-radius: 12px;
+    background: #191816;
+  }
+  .mobile-calendar-days button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+    min-height: 65px;
+    padding: 6px 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #aaa399;
+  }
+  .mobile-calendar-days button.is-selected {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .mobile-calendar-days button > span {
+    font: 600 10px TTCommons, sans-serif;
+    text-transform: uppercase;
+  }
+  .mobile-calendar-days button b {
+    font: 600 18px/1 TTCommons, sans-serif;
+  }
+  .mobile-calendar-days button i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+  }
+  .mobile-calendar-days button i.has-events {
+    background: var(--today);
+  }
+  .mobile-calendar-days button.is-selected i.has-events {
+    background: #a47527;
+  }
+  .mobile-calendar-days button.is-today:not(.is-selected) b {
+    color: var(--today);
+  }
+  .mobile-calendar-day-heading {
+    gap: 10px;
+    margin: 30px 0 16px;
+    align-items: flex-end;
+  }
+  .mobile-calendar-day-heading h3 {
+    margin: 6px 0 4px;
+    font: 400 23px/1.05 Georgia, serif;
+    letter-spacing: -.04em;
+    text-transform: capitalize;
+  }
+  .mobile-calendar-day-heading p {
+    margin: 0;
+    color: #918a7e;
+    font: 400 12px TTCommons, sans-serif;
+  }
+  .mobile-calendar-day-heading > button {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--today);
+    color: var(--ink);
+  }
+  .mobile-calendar-agenda {
+    display: grid;
+    gap: 11px;
+  }
+  .mobile-calendar-agenda-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 9px;
+    align-items: start;
+  }
+  .mobile-calendar-agenda-row time {
+    padding-top: 15px;
+    color: #aaa399;
+    font: 600 12px TTCommons, sans-serif;
+  }
+  .mobile-calendar-card {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+    min-height: 74px;
+    padding: 13px 14px;
+    border: 1px solid #ded8cd;
+    border-left: 4px solid #8e897e;
+    border-radius: 9px;
+    background: var(--paper);
+    color: var(--ink);
+    text-align: left;
+  }
+  .mobile-calendar-card.lesson { border-left-color: #b18b40; }
+  .mobile-calendar-card.task { border-left-color: #6e8178; }
+  .mobile-calendar-card.birthday { border-left-color: #bd8c68; }
+  .mobile-calendar-card span {
+    color: #777064;
+    font: 600 10px TTCommons, sans-serif;
+    letter-spacing: .09em;
+  }
+  .mobile-calendar-card strong {
+    overflow-wrap: anywhere;
+    font: 600 16px/1.15 TTCommons, sans-serif;
+  }
+  .mobile-calendar-card small {
+    color: #777064;
+    font: 400 12px/1.25 TTCommons, sans-serif;
+  }
+  .mobile-calendar-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 24px;
+    border: 1px solid #38342e;
+    border-radius: 11px;
+    background: #171715;
+    color: #ded7cb;
+  }
+  .mobile-calendar-empty strong { font: 400 24px Georgia, serif; }
+  .mobile-calendar-empty span,
+  .mobile-calendar-message { color: #aaa399; font: 400 13px/1.35 TTCommons, sans-serif; }
+  .mobile-calendar-empty button {
+    min-height: 40px;
+    margin-top: 7px;
+    padding: 0 14px;
+    border: 1px solid #e8be6170;
+    border-radius: 7px;
+    background: #e8be6116;
+    color: var(--today);
+    font: 600 13px TTCommons, sans-serif;
   }
   .students-grid {
     grid-template-columns: 1fr;

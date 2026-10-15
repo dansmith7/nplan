@@ -3,6 +3,7 @@ import { Check, ChevronRight, MoonStar, Pencil, Plus, Sunrise, Trash2 } from "lu
 import "./planner-sleep-screen.css";
 import "./planner-sleep-chart.css";
 import { usePlannerSleepEntries } from "@/hooks/use-planner-sleep-entries";
+import { dayScore, nightIndex, sleepIndex } from "./planner-sleep-index";
 
 type Mood = "Отличное" | "Хорошее" | "Спокойное" | "Тяжёлое" | "Плохое";
 type DayReport = { energy: number; sleepiness: number; clarity: number; mood: number };
@@ -50,54 +51,6 @@ function readEntries(): Entry[] {
 }
 function dateFromOffset(offset: number) { const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + offset); return date.toISOString().slice(0, 10); }
 function weekday(date: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(date + "T12:00:00")).slice(0, 2).toUpperCase(); }
-function timingMinutes(entry: Entry) { const [hours = 0, minutes = 0] = entry.bedtime.split(":").map(Number); const value = hours * 60 + minutes; return value < 12 * 60 ? value + 1440 : value; }
-function sleepDurationScore(minutes: number) {
-  if (minutes >= 450) return 100;
-  if (minutes >= 420) return Math.round(80 + ((minutes - 420) / 30) * 20);
-  if (minutes >= 360) return Math.round(60 + ((minutes - 360) / 60) * 20);
-  if (minutes >= 300) return Math.round(35 + ((minutes - 300) / 60) * 25);
-  if (minutes >= 240) return Math.round(10 + ((minutes - 240) / 60) * 25);
-  return 0;
-}
-function awakeningScore(awakenings: number) {
-  if (awakenings === 0) return 100;
-  if (awakenings === 1) return 90;
-  if (awakenings === 2) return 85;
-  if (awakenings === 3) return 60;
-  return Math.max(20, 60 - (awakenings - 3) * 10);
-}
-function isWeekendWakeDay(entry: Entry) {
-  const wakeDay = new Date(`${entry.date}T12:00:00`).getDay();
-  return wakeDay === 0 || wakeDay === 6;
-}
-function weekdayLateBedtimePenalty(entry: Entry) {
-  if (isWeekendWakeDay(entry)) return 0;
-  const bedtime = timingMinutes(entry);
-  if (bedtime <= 26 * 60) return 0;
-  if (bedtime <= 26 * 60 + 30) return 5;
-  if (bedtime <= 27 * 60) return 12;
-  if (bedtime <= 28 * 60) return 22;
-  return 30;
-}
-function nightIndex(entry: Entry, history: Entry[]) {
-  const minutes = duration(entry.bedtime, entry.wakeTime);
-  const durationScore = sleepDurationScore(minutes);
-  const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
-  const averageTiming = others.length ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length : timingMinutes(entry);
-  const timingScore = Math.max(0, Math.round(100 - Math.abs(timingMinutes(entry) - averageTiming) / 1.2));
-  const weekend = isWeekendWakeDay(entry);
-  const score = durationScore * (weekend ? 0.75 : 0.6) + timingScore * (weekend ? 0.1 : 0.25)
-    + awakeningScore(entry.awakenings) * 0.15 - weekdayLateBedtimePenalty(entry);
-  return Math.max(0, Math.round(score));
-}
-function dayScore(report: DayReport) {
-  return Math.round((report.energy + (11 - report.sleepiness) + report.clarity + report.mood) * 2.5);
-}
-function indexFor(entry: Entry, history: Entry[]) {
-  const nightly = nightIndex(entry, history);
-  return entry.dayReport ? Math.round(nightly * 0.7 + dayScore(entry.dayReport) * 0.3) : nightly;
-}
-
 export function PlannerSleepScreen() {
   const sleepStore = usePlannerSleepEntries();
   const [entries, setEntries] = React.useState<Entry[]>([]);
@@ -109,10 +62,10 @@ export function PlannerSleepScreen() {
   const today = entries.find((entry) => entry.date === todayKey());
   const week = React.useMemo(() => Array.from({ length: 7 }, (_, index) => dateFromOffset(index - 6)), []);
   const weeklyEntries = week.map((date) => entries.find((entry) => entry.date === date));
-  const weeklyScores = weeklyEntries.map((entry) => entry ? indexFor(entry, sorted) : null);
+  const weeklyScores = weeklyEntries.map((entry) => entry ? sleepIndex(entry, sorted) : null);
   const recent = sorted.slice(0, 7);
   const average = recent.length ? Math.round(recent.reduce((sum, entry) => sum + duration(entry.bedtime, entry.wakeTime), 0) / recent.length) : null;
-  const current = today ?? sorted[0]; const currentIndex = current ? indexFor(current, sorted) : null;
+  const current = today ?? sorted[0]; const currentIndex = current ? sleepIndex(current, sorted) : null;
   const latestReported = sorted.find((entry) => entry.dayReport);
   const previousEntry = entries.find((entry) => entry.date === dateFromOffset(-1));
   const save = (entry: Entry, reportForPrevious?: DayReport) => {
@@ -154,10 +107,10 @@ export function PlannerSleepScreen() {
       <article><span>ПРОБУЖДЕНИЯ</span><strong>{current ? String(current.awakenings) : "—"}</strong><p>{current ? "за последнюю ночь" : "необязательное поле"}</p></article>
       <article className="sleep-mood-card"><span>ДНЕВНАЯ ОЦЕНКА</span><strong>{latestReported?.dayReport ? String(dayScore(latestReported.dayReport)) : "—"}</strong><p>{latestReported?.dayReport ? "за " + new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(latestReported.date + "T12:00:00")) : "появится на следующий день"}</p></article>
     </section>
-    {latestReported?.dayReport ? <section className="sleep-day-scale"><header><div><span>КАК ПРОШЁЛ ДЕНЬ ПОСЛЕ СНА</span><h2>{new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(latestReported.date + "T12:00:00"))}</h2></div><p>Итог ночи: <strong>{indexFor(latestReported, sorted)}</strong> <em>{nightIndex(latestReported, sorted)} ночью</em></p></header><div className="sleep-metric-grid">{reportMetrics.map((metric) => { const value = latestReported.dayReport![metric.key]; return <article key={metric.key}><div><span>{metric.label}</span><strong>{value}</strong></div><div className="sleep-meter"><i style={{ width: String(value * 10) + "%" }} /></div><footer><small>{metric.low}</small><small>{metric.high}</small></footer></article>; })}</div></section> : null}
+    {latestReported?.dayReport ? <section className="sleep-day-scale"><header><div><span>КАК ПРОШЁЛ ДЕНЬ ПОСЛЕ СНА</span><h2>{new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(latestReported.date + "T12:00:00"))}</h2></div><p>Итог ночи: <strong>{sleepIndex(latestReported, sorted)}</strong> <em>{nightIndex(latestReported, sorted)} ночью</em></p></header><div className="sleep-metric-grid">{reportMetrics.map((metric) => { const value = latestReported.dayReport![metric.key]; return <article key={metric.key}><div><span>{metric.label}</span><strong>{value}</strong></div><div className="sleep-meter"><i style={{ width: String(value * 10) + "%" }} /></div><footer><small>{metric.low}</small><small>{metric.high}</small></footer></article>; })}</div></section> : null}
     <section className="sleep-insight"><MoonStar size={18} /><div><span>НАБЛЮДЕНИЕ</span><p>{advice}</p></div><ChevronRight size={17} aria-hidden="true" /></section>
     <section className="sleep-history"><header><div><span>БАЗА НАБЛЮДЕНИЙ</span><h2>Ночи</h2></div><p>{entries.length ? String(entries.length) + " записей" : "без серий и давления"}</p></header>
-      {sorted.length ? <div className="sleep-list">{sorted.map((entry) => <article key={entry.id}><b>{entry.dayReport ? String(indexFor(entry, sorted)) : moodMark(entry.mood)}</b><button onClick={() => setEditing(entry)}><strong>{entry.date === todayKey() ? "Сегодня" : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(entry.date + "T12:00:00"))}</strong><span>{entry.bedtime} — {entry.wakeTime} · {entry.awakenings ? String(entry.awakenings) + " пробужд." : "без пробуждений"}</span></button><div><strong>{durationLabel(duration(entry.bedtime, entry.wakeTime))}</strong><span>{entry.dayReport ? "день: " + String(dayScore(entry.dayReport)) + "/100" : "ждёт отчёта дня"}</span></div><button className="sleep-delete" aria-label="Удалить запись" onClick={() => remove(entry.id)}><Trash2 size={15} /></button></article>)}</div>
+      {sorted.length ? <div className="sleep-list">{sorted.map((entry) => <article key={entry.id}><b>{entry.dayReport ? String(sleepIndex(entry, sorted)) : moodMark(entry.mood)}</b><button onClick={() => setEditing(entry)}><strong>{entry.date === todayKey() ? "Сегодня" : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(entry.date + "T12:00:00"))}</strong><span>{entry.bedtime} — {entry.wakeTime} · {entry.awakenings ? String(entry.awakenings) + " пробужд." : "без пробуждений"}</span></button><div><strong>{durationLabel(duration(entry.bedtime, entry.wakeTime))}</strong><span>{entry.dayReport ? "день: " + String(dayScore(entry.dayReport)) + "/100" : "ждёт отчёта дня"}</span></div><button className="sleep-delete" aria-label="Удалить запись" onClick={() => remove(entry.id)}><Trash2 size={15} /></button></article>)}</div>
         : <button className="sleep-empty" onClick={() => setEditing(null)}><Plus size={19} /><span><strong>Отметить первую ночь</strong>Время сна, подъёма и одно касание про самочувствие.</span></button>}
     </section>
     <p className="sleep-method-note">Индекс — личный ориентир из длительности, регулярности и пробуждений; он не измеряет фазы сна и не заменяет медицинскую оценку.</p>

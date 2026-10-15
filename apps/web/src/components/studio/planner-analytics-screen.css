@@ -159,7 +159,7 @@
   .rhythm-grid b { font-size: 11px; }
 }
 
-/* The calendar index uses the same 0–100 day report scale as the sleep view. */
+/* The calendar uses the same 0–100 sleep index as the sleep view. */
 .month-day { min-height: 116px; }
 .month-energy { bottom: 36px; }
 .month-index {
@@ -183,7 +183,7 @@
   left: 0;
   height: 4px;
   border-radius: 3px;
-  background: linear-gradient(90deg, #d8b76d var(--day-index), #34312c var(--day-index));
+  background: linear-gradient(90deg, #d8b76d var(--sleep-index), #34312c var(--sleep-index));
 }
 @media (max-width: 760px) {
   .month-day, .month-gap { min-height: 74px; }

@@ -2,6 +2,9 @@
   --collection-muted: #969289;
   min-width: 0;
 }
+.collection-groups { display: grid; gap: 30px; }
+.collection-group > h2 { margin: 20px 0 14px; color: var(--paper); font: 500 20px TTCommons; }
+.collection-group > h2 small { margin-left: 7px; color: #858179; font: 400 13px TTCommons; }
 .collections-heading {
   display: flex;
   align-items: end;

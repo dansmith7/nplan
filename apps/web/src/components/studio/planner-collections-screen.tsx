@@ -54,6 +54,18 @@ const collectionEmptyCopy: Record<Exclude<CollectionItemType, "movie">, string> 
 const statusLabel = (status: MovieStatus) =>
   movieStatuses.find((item) => item.id === status)?.label ?? status;
 
+function groupedItems<T extends { group_name: string | null }>(items: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const name = item.group_name?.trim() || "Без группы";
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name)!.push(item);
+  }
+  return [...groups.entries()].sort(([a], [b]) =>
+    a === "Без группы" ? 1 : b === "Без группы" ? -1 : a.localeCompare(b, "ru")
+  );
+}
+
 export function PlannerCollectionsScreen({
   initialType = "movie",
 }: {
@@ -167,13 +179,14 @@ export function PlannerCollectionsScreen({
         </div>
       ) : null}
       {!movies.isLoading && !movies.isError && filtered.length ? (
-        <div className="movie-grid">
-          {filtered.map((movie) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onOpen={() => setEditing(movie)}
-            />
+        <div className="collection-groups">
+          {groupedItems(filtered).map(([name, items]) => (
+            <section className="collection-group" key={name}>
+              {(name !== "Без группы" || groupedItems(filtered).length > 1) ? <h2>{name} <small>{items.length}</small></h2> : null}
+              <div className="movie-grid">{items.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} onOpen={() => setEditing(movie)} />
+              ))}</div>
+            </section>
           ))}
         </div>
       ) : null}
@@ -206,6 +219,7 @@ export function PlannerCollectionsScreen({
       {editing ? (
         <MovieEditor
           movie={editing === "new" ? null : editing}
+          groups={[...new Set((movies.data ?? []).map((item) => item.group_name).filter((name): name is string => Boolean(name)))]}
           isSaving={movies.create.isPending || movies.update.isPending}
           onClose={() => setEditing(null)}
           onSave={async (input) => {
@@ -228,6 +242,7 @@ export function PlannerCollectionsScreen({
         <CollectionItemEditor
           type={genericType}
           item={genericEditing === "new" ? null : genericEditing}
+          groups={[...new Set((genericItems.data ?? []).map((item) => item.group_name).filter((name): name is string => Boolean(name)))]}
           isSaving={genericItems.save.isPending || genericItems.remove.isPending}
           onClose={() => setGenericEditing(null)}
           onSave={async (input) => {
@@ -264,21 +279,28 @@ function GenericCollection({
   if (isError) return <div className="collection-empty collection-error"><h2>Коллекция пока недоступна.</h2></div>;
   if (!items.length) return <div className="collection-empty"><LibraryIcon type={type} /><h2>Пока пусто.</h2><p>{collectionEmptyCopy[type]}</p></div>;
   return (
-    <div className="generic-collection-list">
-      {items.map((item) => (
-        <button className="generic-collection-card" key={item.id} onClick={() => onOpen(item)}>
-          {item.image_url ? (
-            <img className="generic-collection-thumb" src={item.image_url} alt="" loading="lazy" />
-          ) : (
-            <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
-          )}
-          <div>
-            <span>{collectionMeta(item)}</span>
-            <h2>{item.title}</h2>
-            {item.note ? <p>{item.note}</p> : null}
+    <div className="collection-groups">
+      {groupedItems(items).map(([name, groupItems]) => (
+        <section className="collection-group" key={name}>
+          {(name !== "Без группы" || groupedItems(items).length > 1) ? <h2>{name} <small>{groupItems.length}</small></h2> : null}
+          <div className="generic-collection-list">
+            {groupItems.map((item) => (
+              <button className="generic-collection-card" key={item.id} onClick={() => onOpen(item)}>
+                {item.image_url ? (
+                  <img className="generic-collection-thumb" src={item.image_url} alt="" loading="lazy" />
+                ) : (
+                  <div className="generic-collection-icon"><LibraryIcon type={type} /></div>
+                )}
+                <div>
+                  <span>{collectionMeta(item)}</span>
+                  <h2>{item.title}</h2>
+                  {item.note ? <p>{item.note}</p> : null}
+                </div>
+                <ExternalLink size={14} />
+              </button>
+            ))}
           </div>
-          <ExternalLink size={14} />
-        </button>
+        </section>
       ))}
     </div>
   );
@@ -302,6 +324,7 @@ function collectionMeta(item: PlannerCollectionItem) {
 function CollectionItemEditor({
   type,
   item,
+  groups,
   isSaving,
   onClose,
   onSave,
@@ -309,12 +332,14 @@ function CollectionItemEditor({
 }: {
   type: Exclude<CollectionItemType, "movie">;
   item: PlannerCollectionItem | null;
+  groups: string[];
   isSaving: boolean;
   onClose: () => void;
   onSave: (input: CollectionItemInput) => Promise<void>;
   onDelete?: () => Promise<void>;
 }) {
   const [title, setTitle] = React.useState(item?.title ?? "");
+  const [groupName, setGroupName] = React.useState(item?.group_name ?? "");
   const [note, setNote] = React.useState(item?.note ?? "");
   const [sourceUrl, setSourceUrl] = React.useState(item?.source_url ?? "");
   const [imageUrl, setImageUrl] = React.useState(item?.image_url ?? "");
@@ -337,7 +362,7 @@ function CollectionItemEditor({
     setError(null);
     try {
       await onSave({
-        type, title, note, sourceUrl, imageUrl,
+        type, title, groupName, note, sourceUrl, imageUrl,
         priceAmount: price ? Number(price) : null,
         currency, birthDate: birthDate || null, location, mapUrl, visited,
         contentKind, contentStatus,
@@ -362,9 +387,10 @@ function CollectionItemEditor({
     <div className="modal-backdrop" onMouseDown={onClose}>
       <form className="planner-modal movie-editor collection-item-editor" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-top"><span>{item ? label.toUpperCase() : `НОВАЯ ЗАПИСЬ · ${label.toUpperCase()}`}</span><button type="button" onClick={onClose} aria-label="Закрыть"><X size={18} /></button></div>
-        <div className="movie-editor-title"><h2>{item ? item.title : "Сохранить на потом."}</h2><LibraryIcon type={type} /></div>
+        <div className="movie-editor-title"><div><h2>{item ? item.title : "Сохранить на потом."}</h2>{item?.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">Открыть ссылку <ExternalLink size={12} /></a> : null}</div><LibraryIcon type={type} /></div>
         <div className="movie-form-grid">
           <label className="wide">{type === "birthday" ? "Имя" : "Название"}<input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+          <label className="wide">Группа <small className="field-hint">Выберите существующую или введите новую</small><input list="collection-groups" maxLength={80} value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Без группы" /><datalist id="collection-groups">{groups.map((name) => <option key={name} value={name} />)}</datalist></label>
           {type === "purchase" ? <><label>Цена<input type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>Валюта<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option>RUB</option><option>CNY</option><option>USD</option><option>EUR</option></select></label><label className="wide">Изображение<input type="url" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} /></label></> : null}
           {type === "birthday" ? <label className="wide">Дата рождения<input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /><small className="field-hint">Событие повторяется ежегодно, напоминание — в этот же день.</small></label> : null}
           {type === "place" ? <><label className="wide">Город или адрес<input value={location} onChange={(event) => setLocation(event.target.value)} /></label><label className="wide">Ссылка на карту<input type="url" value={mapUrl} onChange={(event) => setMapUrl(event.target.value)} /></label><label className="collection-checkbox"><input type="checkbox" checked={visited} onChange={(event) => setVisited(event.target.checked)} /> Уже посетил</label></> : null}
@@ -431,18 +457,21 @@ function MovieCard({ movie, onOpen }: { movie: PlannerMovie; onOpen: () => void 
 
 function MovieEditor({
   movie,
+  groups,
   isSaving,
   onClose,
   onSave,
   onDelete,
 }: {
   movie: PlannerMovie | null;
+  groups: string[];
   isSaving: boolean;
   onClose: () => void;
   onSave: (input: MovieInput) => Promise<void>;
   onDelete?: () => Promise<void>;
 }) {
   const [title, setTitle] = React.useState(movie?.title ?? "");
+  const [groupName, setGroupName] = React.useState(movie?.group_name ?? "");
   const [originalTitle, setOriginalTitle] = React.useState(
     movie?.movie.original_title ?? ""
   );
@@ -496,6 +525,7 @@ function MovieEditor({
     try {
       await onSave({
         title,
+        groupName,
         originalTitle,
         releaseYear: releaseYear ? Number(releaseYear) : null,
         durationMinutes: duration ? Number(duration) : null,
@@ -542,6 +572,7 @@ function MovieEditor({
           <Film size={22} />
         </div>
         <div className="movie-form-grid">
+          <label className="wide">Группа <small className="field-hint">Выберите существующую или введите новую</small><input list="movie-collection-groups" maxLength={80} value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Без группы" /><datalist id="movie-collection-groups">{groups.map((name) => <option key={name} value={name} />)}</datalist></label>
           <label className="wide">
             {kinopoiskId !== null ? "Название" : "Название — найдём на Кинопоиске"}
             <div className="kinopoisk-title-input">

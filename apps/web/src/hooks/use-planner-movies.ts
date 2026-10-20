@@ -21,6 +21,7 @@ export type PlannerCollectionItem = {
   id: string;
   type: CollectionItemType;
   title: string;
+  group_name: string | null;
   note: string | null;
   source_url: string | null;
   image_url: string | null;
@@ -34,6 +35,7 @@ export type PlannerCollectionItem = {
 export type CollectionItemInput = {
   type: Exclude<CollectionItemType, "movie">;
   title: string;
+  groupName?: string;
   note?: string;
   sourceUrl?: string;
   imageUrl?: string;
@@ -65,6 +67,7 @@ type MovieDetails = {
 export type PlannerMovie = {
   id: string;
   title: string;
+  group_name: string | null;
   note: string | null;
   source_url: string | null;
   image_url: string | null;
@@ -76,6 +79,7 @@ export type PlannerMovie = {
 
 export type MovieInput = {
   title: string;
+  groupName?: string;
   originalTitle?: string;
   releaseYear?: number | null;
   durationMinutes?: number | null;
@@ -126,7 +130,7 @@ async function getMovies(): Promise<PlannerMovie[]> {
   const { data, error } = await requireSupabase()
     .from("collection_items")
     .select(
-      "id, title, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, kinopoisk_id, watch_provider, trailer_url, recommended_by, personal_rating, status)"
+      "id, title, group_name, note, source_url, image_url, promoted_task_id, calendar_event_id, created_at, movie:collection_movies(original_title, release_year, duration_minutes, genres, director, external_rating, kinopoisk_id, watch_provider, trailer_url, recommended_by, personal_rating, status)"
     )
     .eq("type", "movie")
     .order("created_at", { ascending: false })
@@ -185,7 +189,7 @@ export function usePlannerCollectionItems(
     queryFn: async () => {
       const { data, error } = await requireSupabase()
         .from("collection_items")
-        .select("id, type, title, note, source_url, image_url, created_at, purchase:collection_purchases(price_amount,currency), birthday:collection_birthdays(birth_date), place:collection_places(location,map_url,visited), learning:collection_learning(content_kind,status)")
+        .select("id, type, title, group_name, note, source_url, image_url, created_at, purchase:collection_purchases(price_amount,currency), birthday:collection_birthdays(birth_date), place:collection_places(location,map_url,visited), learning:collection_learning(content_kind,status)")
         .eq("type", type)
         .order("created_at", { ascending: false })
         .returns<CollectionItemQueryRow[]>();
@@ -230,9 +234,13 @@ export function usePlannerCollectionItems(
         }
       );
       if (error) throw error;
+      const groupResult = await requireSupabase().from("collection_items")
+        .update({ group_name: input.groupName?.trim() || null })
+        .eq("id", data as string);
+      if (groupResult.error) throw groupResult.error;
       return data as string;
     },
-    onSuccess: invalidate,
+    onSuccess: () => { void invalidate(); },
   });
   const remove = useMutation({
     mutationFn: async (id: string) => {
@@ -242,7 +250,7 @@ export function usePlannerCollectionItems(
       );
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: () => { void invalidate(); },
   });
   return { ...query, save, remove };
 }
@@ -269,9 +277,13 @@ export function usePlannerMovies() {
         rpcInput(input)
       );
       if (error) throw error;
+      const groupResult = await requireSupabase().from("collection_items")
+        .update({ group_name: input.groupName?.trim() || null })
+        .eq("id", data as string);
+      if (groupResult.error) throw groupResult.error;
       return data as string;
     },
-    onSuccess: invalidate,
+    onSuccess: () => { void invalidate(); },
   });
 
   const update = useMutation({
@@ -281,8 +293,12 @@ export function usePlannerMovies() {
         { p_item_id: id, ...rpcInput(input) }
       );
       if (error) throw error;
+      const groupResult = await requireSupabase().from("collection_items")
+        .update({ group_name: input.groupName?.trim() || null })
+        .eq("id", id);
+      if (groupResult.error) throw groupResult.error;
     },
-    onSuccess: invalidate,
+    onSuccess: () => { void invalidate(); },
   });
 
   const remove = useMutation({
@@ -293,7 +309,7 @@ export function usePlannerMovies() {
       );
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: () => { void invalidate(); },
   });
 
   return { ...query, create, update, remove };

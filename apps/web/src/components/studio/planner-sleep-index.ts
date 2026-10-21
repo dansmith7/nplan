@@ -43,16 +43,28 @@ function weekdayLateBedtimePenalty(entry: PlannerSleepEntry) {
   return 30;
 }
 
-export function nightIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
+export function sleepIndexBreakdown(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
   const minutes = duration(entry.bedtime, entry.wakeTime);
   const durationScore = sleepDurationScore(minutes);
-  const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
+  // A night's score must not change because a later night was added.
+  const others = history.filter((item) => item.date < entry.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
   const averageTiming = others.length
     ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length
     : timingMinutes(entry);
-  const timingScore = Math.max(0, Math.round(100 - Math.abs(timingMinutes(entry) - averageTiming) / 1.2));
-  const score = durationScore * 0.6 + timingScore * 0.25 + awakeningScore(entry.awakenings) * 0.15 - weekdayLateBedtimePenalty(entry);
-  return Math.max(0, Math.round(score));
+  const timingDifference = others.length ? Math.round(Math.abs(timingMinutes(entry) - averageTiming)) : null;
+  const timingScore = timingDifference === null ? 100 : Math.max(0, Math.round(100 - timingDifference / 1.2));
+  const awakenings = awakeningScore(entry.awakenings);
+  const latePenalty = weekdayLateBedtimePenalty(entry);
+  // Duration is the primary signal; a shifted weekend schedule should not
+  // outweigh a long night. The day report is a small adjustment when present.
+  const nightly = Math.max(0, Math.round(durationScore * 0.7 + timingScore * 0.15 + awakenings * 0.15 - latePenalty));
+  const daytime = entry.dayReport ? dayScore(entry.dayReport) : null;
+  const total = daytime === null ? nightly : Math.round(nightly * 0.85 + daytime * 0.15);
+  return { total, nightly, daytime, minutes, durationScore, timingScore, timingDifference, awakeningScore: awakenings, latePenalty };
+}
+
+export function nightIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
+  return sleepIndexBreakdown(entry, history).nightly;
 }
 
 export function dayScore(report: SleepReport) {
@@ -60,6 +72,5 @@ export function dayScore(report: SleepReport) {
 }
 
 export function sleepIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
-  const nightly = nightIndex(entry, history);
-  return entry.dayReport ? Math.round(nightly * 0.7 + dayScore(entry.dayReport) * 0.3) : nightly;
+  return sleepIndexBreakdown(entry, history).total;
 }

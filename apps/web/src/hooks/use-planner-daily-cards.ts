@@ -10,9 +10,14 @@ export function usePlannerDailyCards(from: string) {
     enabled: isConfigured && Boolean(session?.user.id),
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await requireSupabase().from("daily_cards")
-        .select("id, day, workout_type, workout_minutes, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note")
-        .gte("day", from).order("day", { ascending: true }).returns<PlannerDailyCard[]>();
+      const { data, error } = await requireSupabase()
+        .from("daily_cards")
+        .select(
+          "id, day, workout_type, workout_minutes, had_workout, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note"
+        )
+        .gte("day", from)
+        .order("day", { ascending: true })
+        .returns<PlannerDailyCard[]>();
       if (error) throw error;
       return data;
     },

@@ -63,3 +63,25 @@ export function sleepIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[
   const nightly = nightIndex(entry, history);
   return entry.dayReport ? Math.round(nightly * 0.7 + dayScore(entry.dayReport) * 0.3) : nightly;
 }
+
+// Expose the existing production calculation for calendar details without
+// changing its weights or the scores already shown in the sleep screen.
+export function sleepIndexBreakdown(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
+  const minutes = duration(entry.bedtime, entry.wakeTime);
+  const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
+  const averageTiming = others.length
+    ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length
+    : timingMinutes(entry);
+  const difference = Math.abs(timingMinutes(entry) - averageTiming);
+  return {
+    total: sleepIndex(entry, history),
+    nightly: nightIndex(entry, history),
+    daytime: entry.dayReport ? dayScore(entry.dayReport) : null,
+    minutes,
+    durationScore: sleepDurationScore(minutes),
+    timingScore: Math.max(0, Math.round(100 - difference / 1.2)),
+    timingDifference: others.length ? Math.round(difference) : null,
+    awakeningScore: awakeningScore(entry.awakenings),
+    latePenalty: weekdayLateBedtimePenalty(entry),
+  };
+}

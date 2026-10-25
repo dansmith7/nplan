@@ -1,0 +1,220 @@
+.analytics-arc[data-theme="dark"] {
+  --surface: #302d25;
+  --surface-muted: #171715;
+  --foreground: #eee8dc;
+  --text-secondary: #c3b9a7;
+  --text-muted: #aaa294;
+  --border: #413d35;
+  --border-subtle: #34312c;
+  --accent: #d9b876;
+  --accent-strong: #e0bc77;
+  --sleep-rating: #d8b76d;
+  --day-rating: #83b89b;
+  --radius-control: 0.625rem;
+  --control-height-sm: 2.75rem;
+}
+.calendar-mode-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+}
+.calendar-mode-control span {
+  color: inherit;
+  font-size: inherit;
+  letter-spacing: normal;
+}
+.calendar-mode-control .calendar-mode-hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.month-index {
+  --rating-color: var(--sleep-rating);
+  font-variant-numeric: tabular-nums;
+}
+.month-index.day {
+  --rating-color: var(--day-rating);
+}
+.month-day.today:not(.bright):not(.steady):not(.quiet):not(.low) {
+  background: var(--surface-muted);
+}
+.month-index > span:last-of-type {
+  min-width: 4ch;
+  text-align: right;
+}
+.month-index .calendar-rating-track {
+  position: absolute;
+  inset: auto 0 -7px;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.month-index .calendar-rating-track i {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rating-color);
+  transform-origin: left center;
+}
+.analytics-lower {
+  display: block;
+}
+.personal-observations > header {
+  display: block;
+  color: var(--foreground);
+}
+.personal-observations > header h2 {
+  color: var(--foreground);
+}
+.personal-observations > header p {
+  max-width: 70ch;
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+.observations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+.observation-card {
+  min-width: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.observation-heading {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  color: var(--foreground);
+}
+.observation-heading svg {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+.observation-heading h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: var(--leading-body);
+}
+.observation-card .observation-status {
+  display: inline-block;
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: normal;
+}
+.observation-status[data-status="signal"] {
+  color: var(--accent);
+}
+.observation-finding {
+  margin: var(--space-3) 0;
+  color: var(--foreground);
+  font-size: var(--text-base);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.observation-evidence {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.observation-suggestion {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.observation-suggestion span {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  letter-spacing: normal;
+}
+.observation-details summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.observation-details summary::before {
+  content: "+";
+  margin-right: var(--space-2);
+}
+.observation-details[open] summary::before {
+  content: "−";
+}
+.observation-detail {
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.personal-observations > .observation-method {
+  margin: var(--space-6) 0 0;
+  max-width: 100ch;
+  color: var(--text-muted);
+  font:
+    400 var(--text-xs)/1.5 TTCommons,
+    Arial,
+    sans-serif;
+}
+.observation-query-state {
+  min-height: 130px;
+  padding-block: var(--space-6);
+  color: var(--text-secondary);
+}
+.observation-query-state button {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--foreground);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+.rhythm-grid .rhythm-sample {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin-bottom: var(--space-2);
+}
+@media (max-width: 1100px) {
+  .observations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .month-day > strong {
+    position: absolute;
+    top: 8px;
+    right: 0;
+    left: 0;
+    display: block;
+    line-height: 1;
+  }
+  .observations-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .calendar-mode-control {
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+  .calendar-mode-control .calendar-mode-hint {
+    width: 100%;
+  }
+  .month-index .calendar-rating-track {
+    bottom: -9px;
+    height: 3px;
+  }
+}

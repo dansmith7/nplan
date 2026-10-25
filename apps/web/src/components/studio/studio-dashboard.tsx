@@ -89,7 +89,7 @@ type Task = {
 };
 type TaskDraft = Pick<
   Task,
-  "title" | "category" | "dueDate" | "time" | "repeat"
+  "title" | "category" | "dueDate" | "time" | "repeat" | "note"
 >;
 const categories: Category[] = [
   "Китай",
@@ -399,6 +399,7 @@ export function StudioDashboard() {
   const [inboxTaskDraft, setInboxTaskDraft] = React.useState<{
     id: string;
     title: string;
+    description: string;
   } | null>(null);
   const [inboxCollectionDraft, setInboxCollectionDraft] =
     React.useState<PlannerInboxRow | null>(null);
@@ -447,6 +448,7 @@ export function StudioDashboard() {
       setTaskCreationError(null);
       const input = {
         title: draft.title,
+        description: draft.note?.trim() ?? null,
         categoryId,
         dueDate: draft.dueDate || null,
         dueTime: draft.time || null,
@@ -610,7 +612,17 @@ export function StudioDashboard() {
                 onDismiss={(id) => void plannerInbox.dismiss.mutateAsync(id)}
                 onCreate={(item) => {
                   setTaskCreationError(null);
-                  setInboxTaskDraft({ id: item.id, title: item.title });
+                  const fullText = item.transcript || item.raw_text || "";
+                  const description =
+                    item.source === "telegram" &&
+                    fullText.split(/\r?\n/, 1)[0]?.trim() === item.title
+                      ? fullText.replace(/^[^\r\n]*\r?\n?/, "").trim()
+                      : fullText.trim();
+                  setInboxTaskDraft({
+                    id: item.id,
+                    title: item.title,
+                    description,
+                  });
                   setNewTaskCategory("Личное");
                 }}
                 onCollect={(item) => {
@@ -641,6 +653,7 @@ export function StudioDashboard() {
         <CreateTaskModal
           category={newTaskCategory}
           initialTitle={inboxTaskDraft?.title}
+          initialDescription={inboxTaskDraft?.description}
           error={taskCreationError}
           isCreating={
             plannerTasks.create.isPending || plannerInbox.promote.isPending
@@ -735,8 +748,6 @@ function PlannerScreen({
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  const minutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-  const isEveningReview = minutes >= 17 * 60 + 50;
   const hasActiveTasks = tasks.some((task) => !task.done);
   const todayLabel = new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
@@ -800,15 +811,13 @@ function PlannerScreen({
           />
         )}
       </section>
-      {isEveningReview ? (
-        <div className="planner-dashboard-review planner-evening-review">
-          <EveningReviewScreen
-            tasks={tasks}
-            onComplete={(id) => void onComplete(id)}
-            onOpen={onOpen}
-          />
-        </div>
-      ) : null}
+      <div className="planner-dashboard-review planner-evening-review">
+        <EveningReviewScreen
+          tasks={tasks}
+          onComplete={(id) => void onComplete(id)}
+          onOpen={onOpen}
+        />
+      </div>
     </>
   );
 }
@@ -2175,6 +2184,7 @@ function TaskModal({
 function CreateTaskModal({
   category,
   initialTitle,
+  initialDescription,
   isCreating,
   error,
   onClose,
@@ -2182,12 +2192,14 @@ function CreateTaskModal({
 }: {
   category: Category;
   initialTitle?: string;
+  initialDescription?: string;
   isCreating: boolean;
   error: string | null;
   onClose: () => void;
   onCreate: (task: TaskDraft) => void;
 }) {
   const [title, setTitle] = React.useState(initialTitle ?? "");
+  const [description, setDescription] = React.useState(initialDescription ?? "");
   const [target, setTarget] = React.useState(category);
   const [date, setDate] = React.useState("");
   const [time, setTime] = React.useState("");
@@ -2207,6 +2219,15 @@ function CreateTaskModal({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Что нужно сделать?"
+        />
+      </label>
+      <label>
+        Описание
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Подробности задачи"
+          rows={4}
         />
       </label>
       <div className="modal-two-columns">
@@ -2264,6 +2285,7 @@ function CreateTaskModal({
         onClick={() =>
           onCreate({
             title: title.trim(),
+            note: description,
             category: target,
             dueDate: date || null,
             time,

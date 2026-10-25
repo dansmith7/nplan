@@ -27,6 +27,7 @@ type PromoteInboxInput = {
   id: string;
   categoryId: string;
   title: string;
+  description?: string | null;
   dueDate?: string | null;
   dueTime?: string | null;
   recurrence?: "none" | "weekly" | "monthly";
@@ -125,6 +126,7 @@ export function usePlannerInbox() {
           p_inbox_id: input.id,
           p_category_id: input.categoryId,
           p_title: input.title.trim(),
+          p_description: input.description?.trim() ?? null,
           p_due_date: input.dueDate || null,
           p_due_time: input.dueTime || null,
           p_recurrence: input.recurrence ?? "none",

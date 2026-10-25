@@ -8,6 +8,7 @@ export type PlannerDailyCard = {
   day: string;
   workout_type: string | null;
   workout_minutes: number | null;
+  had_workout: boolean | null;
   activity_note: string | null;
   had_sex: boolean | null;
   alcohol_units: number | null;
@@ -19,12 +20,15 @@ export type PlannerDailyCard = {
 
 export type DailyCardInput = Omit<PlannerDailyCard, "id">;
 
-const keyFor = (userId?: string, day?: string) => ["planner", "daily-card", userId, day] as const;
+const keyFor = (userId?: string, day?: string) =>
+  ["planner", "daily-card", userId, day] as const;
 
 async function getDailyCard(day: string): Promise<PlannerDailyCard | null> {
   const { data, error } = await requireSupabase()
     .from("daily_cards")
-    .select("id, day, workout_type, workout_minutes, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note")
+    .select(
+      "id, day, workout_type, workout_minutes, had_workout, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note"
+    )
     .eq("day", day)
     .maybeSingle<PlannerDailyCard>();
   if (error) throw error;
@@ -42,15 +46,23 @@ export function usePlannerDailyCard(day: string) {
     staleTime: 30_000,
   });
   const invalidate = React.useCallback(
-    () => queryClient.invalidateQueries({ queryKey: key }),
-    [key, queryClient]
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: key }),
+        queryClient.invalidateQueries({
+          queryKey: ["planner", "daily-cards", session?.user.id],
+        }),
+      ]),
+    [key, queryClient, session?.user.id]
   );
   const save = useMutation({
     mutationFn: async (input: DailyCardInput) => {
       const { data, error } = await requireSupabase()
         .from("daily_cards")
         .upsert(input, { onConflict: "user_id,day" })
-        .select("id, day, workout_type, workout_minutes, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note")
+        .select(
+          "id, day, workout_type, workout_minutes, had_workout, activity_note, had_sex, alcohol_units, cigarettes, ate_junk_food, weight_kg, note"
+        )
         .single<PlannerDailyCard>();
       if (error) throw error;
       return data;

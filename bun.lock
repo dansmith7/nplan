@@ -16,7 +16,7 @@
     },
     "apps/api": {
       "name": "@open-sunsama/api",
-      "version": "1.0.24",
+      "version": "1.0.26",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.978.0",
         "@aws-sdk/s3-request-presigner": "^3.978.0",
@@ -56,7 +56,7 @@
     },
     "apps/desktop": {
       "name": "@open-sunsama/desktop",
-      "version": "1.0.24",
+      "version": "1.0.26",
       "dependencies": {
         "@tauri-apps/api": "^2.2.0",
         "@tauri-apps/plugin-autostart": "^2.2.0",
@@ -71,7 +71,7 @@
     },
     "apps/expo-mobile": {
       "name": "@open-sunsama/expo-mobile",
-      "version": "1.0.24",
+      "version": "1.0.26",
       "dependencies": {
         "@open-sunsama/api-client": "workspace:*",
         "@open-sunsama/types": "workspace:*",
@@ -101,7 +101,7 @@
     },
     "apps/mobile": {
       "name": "@open-sunsama/mobile",
-      "version": "1.0.24",
+      "version": "1.0.26",
       "dependencies": {
         "@tauri-apps/api": "^2.2.0",
         "@tauri-apps/plugin-biometric": "^2.2.0",
@@ -117,7 +117,7 @@
     },
     "apps/web": {
       "name": "@open-sunsama/web",
-      "version": "1.0.24",
+      "version": "1.0.26",
       "dependencies": {
         "@dnd-kit/core": "^6.1.0",
         "@dnd-kit/modifiers": "^9.0.0",
@@ -3488,9 +3488,9 @@
 
     "@tauri-apps/plugin-haptics/@tauri-apps/api": ["@tauri-apps/api@2.11.1", "", {}, "sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA=="],
 
-    "@tauri-apps/plugin-store/@tauri-apps/api": ["@tauri-apps/api@2.11.1", "", {}, "sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA=="],
-
     "@tauri-apps/plugin-notification/@tauri-apps/api": ["@tauri-apps/api@2.9.1", "", {}, "sha512-IGlhP6EivjXHepbBic618GOmiWe4URJiIeZFlB7x3czM0yDHHYviH1Xvoiv4FefdkQtn6v7TuwWCRfOGdnVUGw=="],
+
+    "@tauri-apps/plugin-store/@tauri-apps/api": ["@tauri-apps/api@2.11.1", "", {}, "sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA=="],
 
     "@types/pg/pg-types": ["pg-types@4.1.0", "", { "dependencies": { "pg-int8": "1.0.1", "pg-numeric": "1.0.2", "postgres-array": "~3.0.1", "postgres-bytea": "~3.0.0", "postgres-date": "~2.1.0", "postgres-interval": "^3.0.0", "postgres-range": "^1.1.1" } }, "sha512-o2XFanIMy/3+mThw69O8d4n1E5zsLhdO+OPqswezu7Z5ekP4hYDqlDjlmOpYMbzY2Br0ufCwJLdDIXeNVwcWFg=="],
 

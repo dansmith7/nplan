@@ -58,20 +58,108 @@ describe("personal observations", () => {
     ).toBe(true);
   });
 
-  it("does not interpret a missing workout as a rest day", () => {
+  it("counts an unmarked workout as rest, including a missing daily card", () => {
     const days = dates(10);
-    const cards = days.map((d, i) =>
-      card(d, { had_workout: i < 5 ? true : null })
-    );
+    const training = days
+      .slice(0, 5)
+      .map((d) => card(d, { had_workout: true }));
     const sleep = days.map((d, i) => night(d, i < 5 ? 8 : 3));
-    expect(item(cards, sleep, "training-energy-0").status).toBe("insufficient");
-    const recordedRest = cards.map((c, i) =>
-      i >= 5 ? { ...c, had_workout: false } : c
+    const observation = item(training, sleep, "training-energy-0");
+    expect(observation.status).toBe("signal");
+    expect(observation.finding).toContain("5,0 п. выше");
+    expect(observation.evidence).toContain(
+      "с тренировкой: 5 · без тренировки: 5"
     );
-    expect(item(recordedRest, sleep, "training-energy-0").status).toBe(
-      "signal"
-    );
+    const unmarkedRest = days.slice(5).map((d) => card(d));
+    const explicitRest = unmarkedRest.map((c) => ({
+      ...c,
+      had_workout: false,
+    }));
+    expect(
+      item([...training, ...unmarkedRest], sleep, "training-energy-0")
+    ).toEqual(observation);
+    expect(
+      item([...training, ...explicitRest], sleep, "training-energy-0")
+    ).toEqual(observation);
+    expect(workoutStatus()).toBe(false);
+    expect(workoutStatus(card(today))).toBe(false);
     expect(workoutStatus(card(today, { workout_type: "Бег" }))).toBe(true);
+    expect(workoutStatus(card(today, { workout_minutes: 30 }))).toBe(true);
+    expect(
+      workoutStatus(card(today, { workout_type: " ", workout_minutes: 0 }))
+    ).toBe(false);
+  });
+
+  it("uses the preceding day's workout for next-day energy and sleep comparisons", () => {
+    const days = dates(10);
+    const training = days
+      .filter((_, i) => i % 2 === 0)
+      .map((d) => card(d, { workout_type: "Бег" }));
+    const sleep = days.map((d, i) => ({
+      ...night(
+        shiftObservationDay(d, 1),
+        i % 2 === 0 ? 8 : 4,
+        i % 2 === 0 ? "23:00" : "01:00"
+      ),
+      awakenings: i % 2 === 0 ? 0 : 2,
+    }));
+    for (const id of [
+      "training-energy-1",
+      "training-sleep",
+      "training-awakenings",
+    ]) {
+      const observation = item(training, sleep, id);
+      expect(observation.status).toBe("signal");
+      expect(observation.evidence).toContain(
+        "с тренировкой: 5 · без тренировки: 5"
+      );
+    }
+    expect(item(training, sleep, "training-energy-1").finding).toContain(
+      "4,0 п. выше"
+    );
+    expect(item(training, sleep, "training-sleep").finding).toContain(
+      "2,0 ч выше"
+    );
+    expect(item(training, sleep, "training-awakenings").finding).toContain(
+      "2,0 пробужд. ниже"
+    );
+  });
+
+  it("does not invent missing ratings and explains only the group that needs records", () => {
+    const days = dates(10);
+    const cards = days.slice(0, 7).map((d) => card(d, { had_workout: true }));
+    const sleep = days.map((d, i) => ({
+      ...night(d),
+      ...(i >= 7 ? { dayReport: undefined } : {}),
+    }));
+    const observation = item(cards, sleep, "training-energy-0");
+    expect(observation.status).toBe("insufficient");
+    expect(observation.evidence).toContain(
+      "с тренировкой: 7 · без тренировки: 0"
+    );
+    expect(observation.evidence).toContain("без тренировки: ещё 5");
+    expect(observation.evidence).not.toContain("ещё 0");
+    expect(observation.suggestion).toContain("отдельно отмечать его не нужно");
+    expect(observation.suggestion).not.toContain("Пропуски не считаются");
+  });
+
+  it("keeps training comparisons inside the 90-day window", () => {
+    const from = shiftObservationDay(today, -89);
+    const sleep = [
+      night(from),
+      night(today),
+      night(shiftObservationDay(today, 1)),
+    ];
+    const groups = buildObservations([], sleep, today);
+    const observations = groups.find((g) => g.id === "training")!.items;
+    expect(
+      observations.find((i) => i.id === "training-energy-0")!.evidence
+    ).toContain("без тренировки: 2");
+    for (const observation of observations.filter(
+      (i) => i.id !== "training-energy-0"
+    )) {
+      expect(observation.evidence).toContain("без тренировки: 1");
+    }
   });
 
   it("pairs habits with the following night and day, not the preceding night", () => {

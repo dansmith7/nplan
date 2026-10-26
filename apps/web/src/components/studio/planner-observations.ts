@@ -50,9 +50,11 @@ const bedtimeMinutes = (entry: PlannerSleepEntry) => {
 const median = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b),
     middle = Math.floor(sorted.length / 2);
-  return sorted.length === 0 ? 0 : sorted.length % 2
-    ? sorted[middle]!
-    : (sorted[middle - 1]! + sorted[middle]!) / 2;
+  return sorted.length === 0
+    ? 0
+    : sorted.length % 2
+      ? sorted[middle]!
+      : (sorted[middle - 1]! + sorted[middle]!) / 2;
 };
 const period = (dates: string[]) => {
   const sorted = [...dates].sort();
@@ -60,9 +62,17 @@ const period = (dates: string[]) => {
     ? `${shortDate(sorted[0]!)}–${shortDate(sorted[sorted.length - 1]!)}`
     : "Нет записей";
 };
-export function workoutStatus(card: PlannerDailyCard): boolean | null {
-  if (card.workout_type?.trim() || (card.workout_minutes ?? 0) > 0) return true;
-  return card.had_workout ?? null;
+export function workoutStatus(
+  card?: Pick<
+    PlannerDailyCard,
+    "had_workout" | "workout_type" | "workout_minutes"
+  >
+): boolean {
+  return Boolean(
+    card?.had_workout ||
+    card?.workout_type?.trim() ||
+    (card?.workout_minutes ?? 0) > 0
+  );
 }
 
 function compare(
@@ -72,20 +82,34 @@ function compare(
   label: string,
   suggestion: string,
   threshold = 0.6,
-  unit = "п."
+  unit = "п.",
+  groupLabels?: readonly [string, string]
 ): Observation {
   const known = points.filter((p) => p.group !== null && valid(p.value));
   const yes = known.filter((p) => p.group).map((p) => p.value!);
   const no = known.filter((p) => !p.group).map((p) => p.value!);
-  const evidence = `${period(known.map((p) => p.date))} · группы ${yes.length} и ${no.length} записей`;
+  const counts = groupLabels
+    ? `${groupLabels[0]}: ${yes.length} · ${groupLabels[1]}: ${no.length}`
+    : `группы ${yes.length} и ${no.length} записей`;
+  const evidence = `${period(known.map((p) => p.date))} · ${counts}`;
+  const needed = groupLabels
+    ? [yes, no]
+        .flatMap((values, index) =>
+          values.length < MIN_GROUP
+            ? [`${groupLabels[index]}: ещё ${MIN_GROUP - values.length}`]
+            : []
+        )
+        .join("; ")
+    : `${Math.max(0, MIN_GROUP - yes.length)} и ${Math.max(0, MIN_GROUP - no.length)} соответственно`;
   if (yes.length < MIN_GROUP || no.length < MIN_GROUP)
     return {
       id,
       status: "insufficient",
       finding: context,
-      evidence: `${evidence}. Нужно ещё ${Math.max(0, MIN_GROUP - yes.length)} и ${Math.max(0, MIN_GROUP - no.length)} соответственно.`,
-      suggestion:
-        "Для сравнения нужны хотя бы 5 заполненных записей в каждой группе. Пропуски не считаются ответом «нет».",
+      evidence: `${evidence}. Для сравнения нужно ${needed}.`,
+      suggestion: groupLabels
+        ? "Нужно хотя бы 5 записей с нужной оценкой в каждой группе. День без отметки тренировки считается днём отдыха; отдельно отмечать его не нужно."
+        : "Для сравнения нужны хотя бы 5 заполненных записей в каждой группе. Пропуски не считаются ответом «нет».",
     };
   const difference = average(yes) - average(no);
   const signal = Math.abs(difference) >= threshold;
@@ -125,7 +149,9 @@ export function buildObservations(
         group: recordedSleepMinutes(n) >= durationMedian,
         value: n.dayReport?.[metric.key],
       })),
-      sleep.length ? `После более длинных записей сна (от ${decimal(durationMedian / 60)} ч) по сравнению с более короткими` : "Сравнение более длинных и более коротких записей сна",
+      sleep.length
+        ? `После более длинных записей сна (от ${decimal(durationMedian / 60)} ч) по сравнению с более короткими`
+        : "Сравнение более длинных и более коротких записей сна",
       metric.label,
       "На следующей неделе понаблюдай, повторяется ли разница в похожие по нагрузке дни. Длительность здесь рассчитана по времени отхода и подъёма, а не измерена трекером."
     )
@@ -167,56 +193,71 @@ export function buildObservations(
     )
   );
 
+  const cardByDay = new Map(cards.map((card) => [card.day, card]));
+  const trainingGroups = ["с тренировкой", "без тренировки"] as const;
+  const followingNights = sleep.filter(
+    (night) => shiftObservationDay(night.date, -1) >= from
+  );
   const training: Observation[] = [];
   for (const offset of [0, 1]) {
     training.push(
       compare(
         `training-energy-${offset}`,
-        cards.map((c) => ({
-          date: c.day,
-          group: workoutStatus(c),
-          value: byDay.get(shiftObservationDay(c.day, offset))?.dayReport
-            ?.energy,
-        })),
+        (offset ? followingNights : sleep).map((night) => {
+          const day = shiftObservationDay(night.date, -offset);
+          return {
+            date: day,
+            group: workoutStatus(cardByDay.get(day)),
+            value: night.dayReport?.energy,
+          };
+        }),
         offset
           ? "На следующий день после тренировки по сравнению с днём отдыха"
           : "В день тренировки по сравнению с днём отдыха",
         "энергия",
-        "Отмечай также дни без тренировки. Проверь, сохраняется ли разница при похожей длительности сна; время тренировки пока не записывается."
+        "Проверь, сохраняется ли разница при похожей длительности сна; время тренировки пока не записывается.",
+        0.6,
+        "п.",
+        trainingGroups
       )
     );
   }
   training.push(
     compare(
       "training-sleep",
-      cards.map((c) => {
-        const night = byDay.get(shiftObservationDay(c.day, 1));
+      followingNights.map((night) => {
+        const day = shiftObservationDay(night.date, -1);
         return {
-          date: c.day,
-          group: workoutStatus(c),
-          value: night ? recordedSleepMinutes(night) / 60 : undefined,
+          date: day,
+          group: workoutStatus(cardByDay.get(day)),
+          value: recordedSleepMinutes(night) / 60,
         };
       }),
       "Ночью после тренировки по сравнению с ночью после отдыха",
       "длительность по записи",
       "Сопоставь тип и продолжительность тренировок с последующей ночью. Меняй только одно условие за раз, чтобы проверить наблюдение.",
       0.5,
-      "ч"
+      "ч",
+      trainingGroups
     )
   );
   training.push(
     compare(
       "training-awakenings",
-      cards.map((c) => ({
-        date: c.day,
-        group: workoutStatus(c),
-        value: byDay.get(shiftObservationDay(c.day, 1))?.awakenings,
-      })),
+      followingNights.map((night) => {
+        const day = shiftObservationDay(night.date, -1);
+        return {
+          date: day,
+          group: workoutStatus(cardByDay.get(day)),
+          value: night.awakenings,
+        };
+      }),
       "Ночью после тренировки по сравнению с ночью после отдыха",
       "число пробуждений",
       "Понаблюдай за последующими ночами ещё неделю и учитывай другие отмеченные события дня.",
       0.5,
-      "пробужд."
+      "пробужд.",
+      trainingGroups
     )
   );
 
@@ -315,11 +356,13 @@ export function buildObservations(
       });
     }
   }
-  const weekdayReady = Array.from({ length: 7 }, (_, day) => day).some((day) => {
-    const reports = sleep.filter((n) => n.dayReport);
-    const count = reports.filter((n) => weekday(n.date) === day).length;
-    return count >= 4 && reports.length - count >= 8;
-  });
+  const weekdayReady = Array.from({ length: 7 }, (_, day) => day).some(
+    (day) => {
+      const reports = sleep.filter((n) => n.dayReport);
+      const count = reports.filter((n) => weekday(n.date) === day).length;
+      return count >= 4 && reports.length - count >= 8;
+    }
+  );
   if (!weekdayItems.length)
     weekdayItems.push({
       id: "weekday-empty",

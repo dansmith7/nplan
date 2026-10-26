@@ -14,6 +14,7 @@ import {
   type DailyCardInput,
   usePlannerDailyCard,
 } from "@/hooks/use-planner-daily-card";
+import { workoutStatus } from "./planner-observations";
 import "./planner-day-screen.css";
 import "./planner-day-embedded.css";
 
@@ -145,7 +146,8 @@ export function PlannerDayScreen({ embedded = false }: { embedded?: boolean }) {
           <div className="day-toggle-list">
             <Choice
               label="Была тренировка"
-              value={draft.had_workout ?? (draft.workout_type ? true : null)}
+              value={workoutStatus(draft)}
+              allowUnanswered={false}
               onChange={(value) =>
                 setDraft((current) => ({
                   ...current,
@@ -322,24 +324,28 @@ function Choice({
   label,
   value,
   onChange,
+  allowUnanswered = true,
 }: {
   label: string;
   value: boolean | null;
   onChange: (value: boolean | null) => void;
+  allowUnanswered?: boolean;
 }) {
   return (
     <div className="day-choice">
       <span>{label}</span>
       <div>
-        <button
-          type="button"
-          aria-label={`${label}: не отмечено`}
-          aria-pressed={value === null}
-          className={value === null ? "selected" : ""}
-          onClick={() => onChange(null)}
-        >
-          —
-        </button>
+        {allowUnanswered ? (
+          <button
+            type="button"
+            aria-label={`${label}: не отмечено`}
+            aria-pressed={value === null}
+            className={value === null ? "selected" : ""}
+            onClick={() => onChange(null)}
+          >
+            —
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label={`${label}: нет`}

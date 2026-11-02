@@ -1604,14 +1604,13 @@ function CalendarEventModal({
         </label>
         <label>
           Время
-          <select
+          <input
+            type="time"
+            step={60}
+            required
             value={draft.time}
             onChange={(e) => setDraft({ ...draft, time: e.target.value })}
-          >
-            {timeOptions.slice(1).map((time) => (
-              <option key={time}>{time}</option>
-            ))}
-          </select>
+          />
         </label>
       </div>
       <label>
@@ -1668,6 +1667,7 @@ function CalendarEventModal({
             isSaving ||
             isDeleting ||
             !draft.title.trim() ||
+            !draft.time ||
             (draft.kind === "lesson" && !draft.studentId)
           }
           onClick={() => void save()}

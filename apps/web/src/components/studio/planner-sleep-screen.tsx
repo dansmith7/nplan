@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { Check, ChevronRight, MoonStar, Pencil, Plus, Sunrise, Trash2 } from "lucide-react";
 import "./planner-sleep-screen.css";
 import "./planner-sleep-chart.css";
@@ -119,6 +120,7 @@ export function PlannerSleepScreen() {
 }
 
 function SleepForm({ entry, previousEntry, onSave, onClose }: { entry: Entry | null; previousEntry?: Entry; onSave: (entry: Entry, reportForPrevious?: DayReport) => void; onClose: () => void }) {
+  const triggerRef = React.useRef<HTMLElement | null>(null);
   const [date, setDate] = React.useState(entry?.date ?? todayKey()); const [bedtime, setBedtime] = React.useState(entry?.bedtime ?? "23:30");
   const [wakeTime, setWakeTime] = React.useState(entry?.wakeTime ?? nowTime()); const [awakenings, setAwakenings] = React.useState(entry?.awakenings ?? 0);
   const [report, setReport] = React.useState<DayReport>(entry?.dayReport ?? previousEntry?.dayReport ?? defaultReport);
@@ -126,10 +128,16 @@ function SleepForm({ entry, previousEntry, onSave, onClose }: { entry: Entry | n
   const reportTarget = reportBelongsToNight ? date : previousEntry?.date;
   const reportTitle = reportBelongsToNight ? "КАК ПРОШЁЛ ДЕНЬ ПОСЛЕ ЭТОЙ НОЧИ" : "ВЧЕРАШНИЙ ДЕНЬ";
   const reportDescription = reportTarget ? "Уточнит индекс ночи " + new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(reportTarget + "T12:00:00")) : "";
-  return <section className="sleep-form" role="dialog" aria-modal="true" aria-label="Отметить сон"><header><div><span>{entry ? "РЕДАКТИРОВАНИЕ" : "ДОБРОЕ УТРО"}</span><h2>{entry ? "Ночь" : "Как спалось?"}</h2></div><button onClick={onClose}>Закрыть</button></header>
-    <p className="sleep-form-intro">Достаточно времени, когда лёг и когда проснулся. Остальное — по желанию.</p><div className="sleep-time-fields"><label>День подъёма<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><label>Лёг спать<input type="time" value={bedtime} onChange={(event) => setBedtime(event.target.value)} /></label><label>Проснулся<input type="time" value={wakeTime} onChange={(event) => setWakeTime(event.target.value)} /></label><div><span>По отметкам</span><strong>{durationLabel(duration(bedtime, wakeTime))}</strong></div></div>
+  return <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}><Dialog.Portal>
+    <Dialog.Overlay className="sleep-form-backdrop" />
+    <Dialog.Content className="sleep-form" aria-label="Отметить сон"
+      onOpenAutoFocus={() => { triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+      onCloseAutoFocus={(event) => { event.preventDefault(); triggerRef.current?.focus({ preventScroll: true }); }}
+    ><header><div><span>{entry ? "РЕДАКТИРОВАНИЕ" : "ДОБРОЕ УТРО"}</span><Dialog.Title asChild><h2>{entry ? "Ночь" : "Как спалось?"}</h2></Dialog.Title></div><button onClick={onClose}>Закрыть</button></header>
+    <Dialog.Description asChild><p className="sleep-form-intro">Достаточно времени, когда лёг и когда проснулся. Остальное — по желанию.</p></Dialog.Description><div className="sleep-time-fields"><label>День подъёма<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><label>Лёг спать<input type="time" value={bedtime} onChange={(event) => setBedtime(event.target.value)} /></label><label>Проснулся<input type="time" value={wakeTime} onChange={(event) => setWakeTime(event.target.value)} /></label><div><span>По отметкам</span><strong>{durationLabel(duration(bedtime, wakeTime))}</strong></div></div>
     <p className="sleep-form-label">Сколько раз просыпался?</p><div className="sleep-choice-row">{[0, 1, 2, 3, 4].map((value) => <button key={value} className={awakenings === value ? "selected" : ""} onClick={() => setAwakenings(value)}>{value === 4 ? "4+" : value}</button>)}</div>
     {reportTarget ? <section className="sleep-day-report"><header><div><span>{reportTitle}</span><h3>Оцени день</h3></div><p>{reportDescription}</p></header><div className="sleep-slider-list">{reportMetrics.map((metric) => <label key={metric.key}><div><span>{metric.label}</span><strong>{report[metric.key]}<small>/10</small></strong></div><input type="range" min="1" max="10" value={report[metric.key]} onChange={(event) => setReport((current) => ({ ...current, [metric.key]: Number(event.target.value) }))} aria-label={metric.label} /><footer><small>{metric.low}</small><small>{metric.high}</small></footer></label>)}</div></section> : null}
     <footer><button onClick={onClose}>Отмена</button><button className="sleep-primary" onClick={() => onSave({ id: entry?.id ?? crypto.randomUUID(), date, bedtime, wakeTime, awakenings, mood: entry?.mood, dayReport: reportBelongsToNight ? report : entry?.dayReport }, !reportBelongsToNight && previousEntry ? report : undefined)}><Check size={16} />Сохранить</button></footer>
-  </section>;
+    </Dialog.Content>
+  </Dialog.Portal></Dialog.Root>;
 }

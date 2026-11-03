@@ -1,8 +1,24 @@
+export type RepeatRule = {
+  kind: "daily" | "weekdays" | "weekly" | "monthly";
+  weekday?: number;
+  monthday?: number;
+};
+export function repeatLabel(rule?: RepeatRule | null): string {
+  if (!rule) return "Не повторять";
+  if (rule.kind === "daily") return "Каждый день";
+  if (rule.kind === "weekdays") return "По будням";
+  if (rule.kind === "weekly")
+    return `Еженедельно${rule.weekday ? " · " + ["пн", "вт", "ср", "чт", "пт", "сб", "вс"][rule.weekday - 1] : ""}`;
+  return `Ежемесячно${rule.monthday ? " · " + rule.monthday + "-го числа" : ""}`;
+}
 export type QuickReminder = {
   id: string;
   user_id: string;
   chat_id: number | string;
-  inbox_id: string;
+  inbox_id: string | null;
+  repeat_rule?: RepeatRule | null;
+  proposed_repeat?: RepeatRule | null;
+  undo_until?: string | null;
   title: string;
   raw_text: string;
   timezone: string;
@@ -278,7 +294,7 @@ export function callback(
 }
 export function readCallback(value: string) {
   const m = value.match(
-    /^nr:([a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}):(\d{1,9}):(create|pick|15|60|tom9|tonight|custom|cancel|done|back)$/i
+    /^nr:([a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}):(\d{1,9}):(create|pick|15|60|tom9|tonight|custom|cancel|done|back|undo|repeat|rdaily|rweekdays|rweekly|rmonthly|rnone)$/i
   );
   return m
     ? { id: m[1].toLowerCase(), revision: Number(m[2]), action: m[3] }
@@ -297,14 +313,20 @@ export function initialButtons(r: QuickReminder): Markup {
           r.proposed_at
             ? `⏰ Создать · ${formatWhen(r.proposed_at, r.timezone)}`
             : "⏰ Создать напоминание",
-          r.proposed_at ? "create" : "pick"
+          r.proposed_at ? "create" : r.proposed_repeat ? "custom" : "pick"
         ),
       ],
     ],
   };
 }
 export function manageButtons(r: QuickReminder): Markup {
-  if (["done", "cancelled"].includes(r.status)) return { inline_keyboard: [] };
+  if (["done", "cancelled"].includes(r.status))
+    return {
+      inline_keyboard:
+        r.undo_until && new Date(r.undo_until) > new Date()
+          ? [[button(r, "↩ Вернуть", "undo")]]
+          : [],
+    };
   if (r.status === "draft") return initialButtons(r);
   return {
     inline_keyboard: [
@@ -312,7 +334,23 @@ export function manageButtons(r: QuickReminder): Markup {
         ? [[button(r, "Через 15 минут", "15"), button(r, "Через час", "60")]]
         : []),
       [button(r, "✓ Готово", "done"), button(r, "Изменить время", "pick")],
-      [button(r, "Отменить", "cancel")],
+      [
+        button(r, r.repeat_rule ? "Пропустить этот раз" : "Отменить", "cancel"),
+        button(r, "Повтор", "repeat"),
+      ],
+    ],
+  };
+}
+export function repeatButtons(r: QuickReminder): Markup {
+  return {
+    inline_keyboard: [
+      [button(r, "Каждый день", "rdaily"), button(r, "По будням", "rweekdays")],
+      [
+        button(r, "Еженедельно", "rweekly"),
+        button(r, "Ежемесячно", "rmonthly"),
+      ],
+      [button(r, "Не повторять дальше", "rnone")],
+      [button(r, "Назад", "back")],
     ],
   };
 }
@@ -365,6 +403,13 @@ export function quickCard(r: QuickReminder): string {
   return [
     heading,
     r.title,
+    r.repeat_rule ? `↻ ${repeatLabel(r.repeat_rule)}` : null,
+    r.repeat_rule && ["done", "cancelled"].includes(r.status)
+      ? "Следующие повторы сохранены."
+      : null,
+    r.undo_until && new Date(r.undo_until) > new Date()
+      ? "Можно вернуть в течение 10 минут."
+      : null,
     r.due_at ? `${formatWhen(r.due_at, r.timezone)} (${r.timezone})` : null,
   ]
     .filter(Boolean)

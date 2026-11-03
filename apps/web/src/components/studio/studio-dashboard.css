@@ -2701,3 +2701,8 @@ html.studio-shell-active.tauri-window #root {
   .reminder-calendar-position { padding:8px 0 0; align-items:end; }
   .reminder-calendar-position .planner-modal { width:100%; max-height:calc(100dvh - 8px); }
 }
+
+.reminder-undo-banner { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 16px; margin:12px 0; border:1px solid var(--line); border-radius:12px; background:#24231e; color:var(--paper); }
+.reminder-undo-banner > span { flex:1; }
+.reminder-undo-banner > button { padding:8px 12px; border:1px solid currentColor; border-radius:8px; }
+.reminder-undo-banner > p { flex-basis:100%; }

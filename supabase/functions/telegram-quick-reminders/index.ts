@@ -79,6 +79,11 @@ Deno.serve(async (request) => {
       if (error) throw error;
       return json({ ok: true, dry_run: true, due: count });
     }
+    const { error: repeatError } = await db.rpc(
+      "refresh_telegram_reminder_series",
+      { p_user_id: owner.id }
+    );
+    if (repeatError) throw repeatError;
     const { error: staleError } = await db
       .from("telegram_quick_reminders")
       .update({ status: "uncertain", error_code: "worker_interrupted" })

@@ -141,7 +141,8 @@ type PlannerEvent = {
   kind: CalendarEventKind;
   reminderRevision?: number;
   reminderOriginalStart?: string;
-  reminderAction?: "update" | "done" | "cancel";
+  reminderRepeat?: string;
+  reminderAction?: "update" | "done" | "cancel" | "undo";
   durationMinutes: number;
   studentId: string | null;
   taskId: string | null;
@@ -267,6 +268,7 @@ function toPlannerEvent(
     time,
     kind: event.kind,
     reminderRevision: event.reminder_revision,
+    reminderRepeat: event.reminder_repeat,
     reminderOriginalStart: event.kind === "reminder" ? event.starts_at : undefined,
     durationMinutes: Math.max(
       30,
@@ -1176,6 +1178,13 @@ function CalendarScreen({
   onLesson: (event: PlannerEvent) => void;
 }) {
   const [dragError, setDragError] = React.useState<string | null>(null);
+  const [undoReminder, setUndoReminder] = React.useState<{
+    event: PlannerEvent;
+    expires: number;
+  } | null>(null);
+  const [undoBusy, setUndoBusy] = React.useState(false);
+  const [undoError, setUndoError] = React.useState<string | null>(null);
+
   const [dragged, setDragged] = React.useState<string | null>(null);
   const [dragPreview, setDragPreview] = React.useState<PlannerEvent | null>(
     null
@@ -1301,6 +1310,40 @@ function CalendarScreen({
         показывает новое место полупрозрачно.
       </p>
       {dragError ? <p className="modal-error" role="alert">{dragError}</p> : null}
+      {undoReminder ? (
+        <div className="reminder-undo-banner" role="status">
+          <span>«{undoReminder.event.title}» — закрыто. Можно вернуть в течение 10 минут.</span>
+          <button
+            type="button"
+            disabled={undoBusy}
+            onClick={async () => {
+              setUndoBusy(true);
+              setUndoError(null);
+              try {
+                if (Date.now() >= undoReminder.expires)
+                  throw new Error("Время возврата истекло.");
+                await onUpdate(undoReminder.event);
+                setUndoReminder(null);
+              } catch (error) {
+                setUndoError(error instanceof Error ? error.message : "Не удалось вернуть напоминание.");
+              } finally {
+                setUndoBusy(false);
+              }
+            }}
+          >
+            {undoBusy ? "Возвращаю…" : "Вернуть"}
+          </button>
+          <button
+            type="button"
+            aria-label="Скрыть сообщение о возврате"
+            disabled={undoBusy}
+            onClick={() => setUndoReminder(null)}
+          >
+            <X size={16} />
+          </button>
+          {undoError ? <p role="alert">{undoError}</p> : null}
+        </div>
+      ) : null}
       <div className="mobile-calendar">
         <div className="mobile-calendar-toolbar">
           <div>
@@ -1528,6 +1571,13 @@ function CalendarScreen({
           onSave={async (event) => {
             const mutation = event.isNew ? onCreate(event) : onUpdate(event);
             await mutation;
+            if (event.kind === "reminder" && ["done", "cancel"].includes(event.reminderAction ?? "")) {
+              setUndoReminder({
+                event: { ...event, reminderRevision: (event.reminderRevision ?? 0) + 1, reminderAction: "undo" },
+                expires: Date.now() + 10 * 60_000,
+              });
+              setUndoError(null);
+            }
             setEditing(null);
           }}
           onDelete={async (id) => {
@@ -1668,7 +1718,7 @@ function CalendarEventModal({
           </select>
         </label>
       ) : null}
-      {draft.kind === "reminder" ? <p className="reminder-calendar-note"><Bell size={15} aria-hidden="true" />Одно уведомление в Telegram в назначенное время.</p> : null}
+      {draft.kind === "reminder" ? <p className="reminder-calendar-note"><Bell size={15} aria-hidden="true" />{draft.reminderRepeat ? `${draft.reminderRepeat}. Изменение времени или «Готово» затронет только эту дату. Настройка повторов — в боте.` : "Одно уведомление в Telegram в назначенное время."}</p> : null}
       {error ? <p className="modal-error" role="alert">{error}</p> : null}
       <div className="modal-footer">
         <button
@@ -1676,7 +1726,7 @@ function CalendarEventModal({
           disabled={isSaving || isDeleting}
           onClick={() => void remove()}
         >
-          <Trash2 size={15} /> {draft.kind === "reminder" ? "Отменить" : isDeleting ? "Удаляю…" : "Удалить"}
+          <Trash2 size={15} /> {draft.kind === "reminder" ? draft.reminderRepeat ? "Пропустить" : "Отменить" : isDeleting ? "Удаляю…" : "Удалить"}
         </button>
         {draft.kind === "reminder" ? <button className="reminder-done-button" disabled={isSaving || isDeleting} onClick={() => void save("done")}><CircleCheck size={16} />Готово</button> : null}
         <button

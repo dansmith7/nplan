@@ -118,3 +118,37 @@ test("a regular message or unrelated reply remains available to the inbox handle
   expect(f.rpcCalls).toHaveLength(0);
   expect(f.apiCalls).toHaveLength(0);
 });
+
+test("Undo reaches the guarded mutation even for a terminal reminder", async () => {
+  const r = {
+    ...row,
+    status: "done" as const,
+    revision: 3,
+    undo_until: new Date(Date.now() + 60000).toISOString(),
+  };
+  const f = fixture(r);
+  await handleQuickCallback(f.c, callback(r, "undo"), 42);
+  expect(f.rpcCalls[0].p_action).toBe("undo");
+  expect(f.rpcCalls[0].p_revision).toBe(3);
+});
+test("repeat menu selects a recurrence through the service RPC", async () => {
+  const r = {
+    ...row,
+    status: "scheduled" as const,
+    due_at: "2026-11-05T10:00:00Z",
+  };
+  const f = fixture(r);
+  await handleQuickCallback(f.c, callback(r, "repeat"), 42);
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.apiCalls[0].text).toContain("Выбери повтор");
+  await handleQuickCallback(f.c, callback(r, "rweekdays"), 42);
+  expect(f.rpcCalls[0].p_kind).toBe("weekdays");
+});
+test("recurring draft custom time respects its named weekday", async () => {
+  const f = fixture(
+    { ...row, proposed_repeat: { kind: "weekly", weekday: 3 } },
+    { reminder_id: row.id, revision: 0, expires_at: "2026-11-04T12:00:00Z" }
+  );
+  await consumeTimeReply(f.c, 7, "в 10:00");
+  expect(f.rpcCalls[0].p_due_at).toBe("2026-11-04T07:00:00.000Z");
+});

@@ -1,6 +1,9 @@
+import { parseReminderInput } from "../_shared/recurring-reminders.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.118.0";
 import {
   initialButtons,
+  repeatButtons,
+  repeatLabel,
   formatWhen,
   manageButtons,
   pickerButtons,
@@ -82,9 +85,11 @@ async function apply(
         ? "Это время уже прошло или не подходит. Выбери новое."
         : result.reason === "busy"
           ? "Напоминание сейчас отправляется. Повтори через несколько секунд."
-          : result.reason === "stale"
-            ? "Напоминание уже изменено. Ниже его текущее состояние."
-            : "";
+          : result.reason === "undo_expired"
+            ? "Время возврата истекло. Можно создать новое напоминание."
+            : result.reason === "stale"
+              ? "Напоминание уже изменено. Ниже его текущее состояние."
+              : "";
   await show(
     c,
     messageId,
@@ -132,7 +137,7 @@ export async function handleQuickCallback(
   }
   if (
     r.revision !== command.revision ||
-    ["done", "cancelled"].includes(r.status)
+    (["done", "cancelled"].includes(r.status) && command.action !== "undo")
   ) {
     await show(c, messageId, quickCard(r), manageButtons(r));
     return;
@@ -141,6 +146,40 @@ export async function handleQuickCallback(
     await c.api.send(
       c.chatId,
       "Напоминание сейчас отправляется. Повтори через несколько секунд."
+    );
+    return;
+  }
+  if (command.action === "undo") {
+    await apply(c, r, null, messageId, "undo");
+    return;
+  }
+  if (command.action === "repeat") {
+    await show(
+      c,
+      messageId,
+      `${quickCard(r)}\n\nВыбери повтор. Время берётся из этой записи. Изменение затронет следующие даты.`,
+      repeatButtons(r)
+    );
+    return;
+  }
+  if (
+    ["rdaily", "rweekdays", "rweekly", "rmonthly", "rnone"].includes(
+      command.action
+    )
+  ) {
+    const { data, error } = await c.db.rpc("set_telegram_reminder_repeat", {
+      p_user_id: c.ownerId,
+      p_id: r.id,
+      p_revision: r.revision,
+      p_kind: command.action.slice(1),
+    });
+    if (error) throw error;
+    const current = data.reminder ?? r;
+    await show(
+      c,
+      messageId,
+      `${data.ok ? "" : "Напоминание изменилось или отправляется. Повтори ещё раз.\n\n"}${quickCard(current)}`,
+      manageButtons(current)
     );
     return;
   }
@@ -212,7 +251,21 @@ export async function consumeTimeReply(
     );
     return true;
   }
-  const parsed = parseReminderTime(text, r.timezone, time(c));
+  if (
+    r.status === "draft" &&
+    r.proposed_repeat &&
+    /кажд[а-яё]*|ежедневно|еженедельно|ежемесячно|по будням/iu.test(text)
+  ) {
+    await c.api.send(
+      c.chatId,
+      "Повтор уже выбран. Ответь только датой и временем, например «в 19:30». Для другого повтора пришли полную фразу новым сообщением."
+    );
+    return true;
+  }
+  const parsed =
+    r.status === "draft" && r.proposed_repeat
+      ? parseReminderInput(text, r.timezone, time(c), r.proposed_repeat)
+      : parseReminderTime(text, r.timezone, time(c));
   if (!parsed.dueAt) {
     await c.api.send(
       c.chatId,
@@ -230,7 +283,7 @@ export async function offerQuickReminder(
   rawText: string,
   inboxReply: string
 ) {
-  const parsed = parseReminderTime(rawText, c.timezone, time(c));
+  const parsed = parseReminderInput(rawText, c.timezone, time(c));
   const { error: insertError } = await c.db
     .from("telegram_quick_reminders")
     .upsert(
@@ -242,6 +295,7 @@ export async function offerQuickReminder(
         raw_text: rawText,
         timezone: c.timezone,
         proposed_at: parsed.dueAt,
+        proposed_repeat: parsed.issue === "unsupported" ? null : parsed.repeat,
       },
       { onConflict: "inbox_id", ignoreDuplicates: true }
     );
@@ -259,7 +313,7 @@ export async function offerQuickReminder(
   if (!r) return;
   const note =
     parsed.issue === "unsupported"
-      ? "\nДля первой версии можно выбрать только одно время напоминания."
+      ? "\nНе удалось разобрать повтор. Поддерживаются: каждый день, по будням, еженедельно и ежемесячно."
       : parsed.issue === "past"
         ? "\nУказанное время уже прошло. Выбери другое."
         : parsed.issue === "invalid"
@@ -270,6 +324,7 @@ export async function offerQuickReminder(
       c.chatId,
       inboxReply +
         note +
+        (r.proposed_repeat ? `\n↻ ${repeatLabel(r.proposed_repeat)}` : "") +
         (r.proposed_at
           ? `\n\nНапомнить: ${formatWhen(r.proposed_at, r.timezone)} (${r.timezone})`
           : ""),
@@ -295,14 +350,10 @@ export async function offerQuickReminder(
   }
 }
 export async function listQuickReminders(c: Context) {
-  const { data, error } = await c.db
-    .from("telegram_quick_reminders")
-    .select("*")
-    .eq("user_id", c.ownerId)
-    .eq("chat_id", c.chatId)
-    .not("status", "in", "(done,cancelled)")
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const { data, error } = await c.db.rpc("list_telegram_quick_reminders", {
+    p_user_id: c.ownerId,
+    p_chat_id: c.chatId,
+  });
   if (error) throw error;
   if (!data?.length) {
     await c.api.send(
@@ -315,7 +366,7 @@ export async function listQuickReminders(c: Context) {
   const text = rows
     .map(
       (r, i) =>
-        `${i + 1}. ${r.title.slice(0, 120)}\n${r.status === "draft" ? "Ещё во входящих" : r.due_at ? new Intl.DateTimeFormat("ru-RU", { timeZone: r.timezone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(r.due_at)) : r.status}`
+        `${i + 1}. ${r.title.slice(0, 120)}${r.repeat_rule ? " · ↻ " + repeatLabel(r.repeat_rule) : ""}\n${r.status === "draft" ? "Ещё во входящих" : r.due_at ? new Intl.DateTimeFormat("ru-RU", { timeZone: r.timezone, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(r.due_at)) : r.status}`
     )
     .join("\n\n");
   await c.api.send(

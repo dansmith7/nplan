@@ -28,6 +28,7 @@ export type PlannerCalendarEventRow = {
   collection_item_id: string | null;
   reminder_revision?: number;
   reminder_status?: string;
+  reminder_repeat?: string;
 };
 
 export type CalendarEventInput = {
@@ -40,7 +41,7 @@ export type CalendarEventInput = {
   taskId?: string | null;
   recurrence?: "none" | "weekly" | "monthly";
   reminderRevision?: number;
-  reminderAction?: "update" | "done" | "cancel";
+  reminderAction?: "update" | "done" | "cancel" | "undo";
 };
 
 type EventRange = { from: string; to: string };

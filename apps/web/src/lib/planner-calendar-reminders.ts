@@ -5,6 +5,7 @@ export type CalendarReminderRow = {
   due_at: string;
   revision: number;
   status: string;
+  repeat_rule?: { kind: string; weekday?: number; monthday?: number } | null;
 };
 export function reminderCalendarRow(row: CalendarReminderRow) {
   return {
@@ -25,11 +26,21 @@ export function reminderCalendarRow(row: CalendarReminderRow) {
     collection_item_id: null,
     reminder_revision: row.revision,
     reminder_status: row.status,
+    reminder_repeat: row.repeat_rule
+      ? ({
+          daily: "Каждый день",
+          weekdays: "По будням",
+          weekly: "Еженедельно",
+          monthly: "Ежемесячно",
+        }[row.repeat_rule.kind] ?? "Повторяется")
+      : undefined,
   };
 }
 export function checkReminderChange(result: { ok: boolean; reason?: string }) {
   if (result.ok) return;
   const messages: Record<string, string> = {
+    undo_expired:
+      "Время возврата истекло. Создай новое напоминание через бота.",
     stale:
       "Напоминание уже изменилось в боте. Закрой окно и открой его заново.",
     busy: "Напоминание сейчас отправляется. Повтори через несколько секунд.",

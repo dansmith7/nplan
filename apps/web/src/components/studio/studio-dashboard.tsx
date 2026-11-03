@@ -1,4 +1,5 @@
 import * as React from "react";
+import { reminderStartAt } from "@/lib/planner-calendar-reminders";
 import {
   Bell,
   CalendarHeart,
@@ -138,6 +139,7 @@ type PlannerEvent = {
   time: string;
   kind: CalendarEventKind;
   reminderRevision?: number;
+  reminderOriginalStart?: string;
   reminderAction?: "update" | "done" | "cancel";
   durationMinutes: number;
   studentId: string | null;
@@ -264,6 +266,7 @@ function toPlannerEvent(
     time,
     kind: event.kind,
     reminderRevision: event.reminder_revision,
+    reminderOriginalStart: event.kind === "reminder" ? event.starts_at : undefined,
     durationMinutes: Math.max(
       30,
       Math.round(
@@ -286,6 +289,7 @@ function toCalendarEventInput(
   const date = addCalendarDays(weekStart, event.day);
   const [hours = 9, minutes = 0] = event.time.split(":").map(Number);
   date.setHours(hours, minutes, 0, 0);
+  if (event.kind === "reminder") date.setTime(reminderStartAt(date, event.reminderOriginalStart).getTime());
   const endsAt = new Date(date.getTime() + event.durationMinutes * 60_000);
   return {
     kind: event.kind,

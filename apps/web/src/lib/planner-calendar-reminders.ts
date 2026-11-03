@@ -43,3 +43,16 @@ export function checkReminderChange(result: { ok: boolean; reason?: string }) {
       "Не удалось изменить напоминание. Повтори ещё раз."
   );
 }
+
+/** Preserve the original seconds when the visible calendar time was not changed. */
+export function reminderStartAt(date: Date, originalStart?: string): Date {
+  if (!originalStart) return date;
+  const original = new Date(originalStart);
+  return original.getFullYear() === date.getFullYear() &&
+    original.getMonth() === date.getMonth() &&
+    original.getDate() === date.getDate() &&
+    original.getHours() === date.getHours() &&
+    original.getMinutes() === date.getMinutes()
+    ? original
+    : date;
+}

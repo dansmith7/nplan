@@ -53,8 +53,18 @@ messages remain independent inbox entries. Reply `отмена` to leave that pr
 5. Verify real message → button → scheduled row/inbox promotion → automatic
    delivery → Done, plus a time-free message and custom time reply.
 
-No frontend or desktop release is needed for the bot feature. Reminder management
-lives in Telegram; this release does not add a reminder list to the web calendar.
+The bot feature runs independently of frontend/desktop releases. The web calendar
+also reads an authenticated projection of active reminder rows through
+`calendar_quick_reminders`. Browser changes use `update_calendar_quick_reminder`
+with an expected revision; chat IDs and worker metadata are not exposed. Done and
+cancelled rows leave the calendar. No duplicate `calendar_events` rows are created,
+so calendar lead notifications never fire for these reminders.
+
+Existing Telegram cards are updated by the minute worker through a private,
+leased outbox after a revision changes, including changes made in the calendar.
+It edits existing messages only. Failed edits retry up to three times; a stale
+card action always reopens current state. The visible web calendar refreshes every
+15 seconds. Installed Mac builds need the updated frontend to display this view.
 
 ## Checks
 

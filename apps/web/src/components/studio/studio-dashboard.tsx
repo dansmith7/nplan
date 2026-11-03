@@ -137,6 +137,8 @@ type PlannerEvent = {
   title: string;
   time: string;
   kind: CalendarEventKind;
+  reminderRevision?: number;
+  reminderAction?: "update" | "done" | "cancel";
   durationMinutes: number;
   studentId: string | null;
   taskId: string | null;
@@ -261,6 +263,7 @@ function toPlannerEvent(
     title: event.title,
     time,
     kind: event.kind,
+    reminderRevision: event.reminder_revision,
     durationMinutes: Math.max(
       30,
       Math.round(
@@ -286,6 +289,8 @@ function toCalendarEventInput(
   const endsAt = new Date(date.getTime() + event.durationMinutes * 60_000);
   return {
     kind: event.kind,
+    reminderRevision: event.reminderRevision,
+    reminderAction: event.reminderAction,
     title: event.title,
     startsAt: date.toISOString(),
     endsAt: endsAt.toISOString(),
@@ -1063,7 +1068,7 @@ function HomeCalendar({
                   style={{ top: `${event.top}%` }}
                   key={event.id}
                 >
-                  {event.time} · {event.title}
+                  {event.kind === "reminder" ? "⏰ " : ""}{event.time} · {event.title}
                 </i>
               ))}
           </div>
@@ -1165,6 +1170,7 @@ function CalendarScreen({
   onDelete: (id: string) => Promise<unknown>;
   onLesson: (event: PlannerEvent) => void;
 }) {
+  const [dragError, setDragError] = React.useState<string | null>(null);
   const [dragged, setDragged] = React.useState<string | null>(null);
   const [dragPreview, setDragPreview] = React.useState<PlannerEvent | null>(
     null
@@ -1289,6 +1295,7 @@ function CalendarScreen({
         Перетаскивайте события по дням и времени. Во время переноса карточка
         показывает новое место полупрозрачно.
       </p>
+      {dragError ? <p className="modal-error" role="alert">{dragError}</p> : null}
       <div className="mobile-calendar">
         <div className="mobile-calendar-toolbar">
           <div>
@@ -1358,7 +1365,7 @@ function CalendarScreen({
                     className={`mobile-calendar-card ${event.kind}`}
                     onClick={() => event.kind === "lesson" ? onLesson(event) : setEditing(event)}
                   >
-                    <span>{event.kind === "lesson" ? "ЗАНЯТИЕ" : event.kind === "task" ? "ЗАДАЧА" : "СОБЫТИЕ"} · {event.durationMinutes} мин</span>
+                    <span>{event.kind === "reminder" ? "Напоминание" : `${event.kind === "lesson" ? "ЗАНЯТИЕ" : event.kind === "task" ? "ЗАДАЧА" : "СОБЫТИЕ"} · ${event.durationMinutes} мин`}</span>
                     <strong>{event.title}</strong>
                     {event.description ? <small>{event.description}</small> : null}
                   </button>
@@ -1457,7 +1464,8 @@ function CalendarScreen({
                         pointerEvent.clientY,
                         event
                       );
-                      if (next) void onUpdate(next);
+                      setDragError(null);
+                      if (next) void onUpdate(next).catch((error) => setDragError(error instanceof Error ? error.message : "Не удалось перенести событие. Повтори ещё раз."));
                       window.setTimeout(() => {
                         suppressEventClick.current = false;
                       }, 0);
@@ -1484,7 +1492,7 @@ function CalendarScreen({
                     dragged === event.id ? "is-dragging" : ""
                   }`}
                 >
-                  <small>{event.time}</small>
+                  <small>{event.time}{event.kind === "reminder" ? " · Напоминание" : ""}</small>
                   {event.isBirthday ? (
                     <span className="birthday-event-title">
                       <Cake size={13} strokeWidth={2} /> {event.title}
@@ -1548,17 +1556,18 @@ function CalendarEventModal({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const students = usePlannerStudents();
-  const save = async () => {
+  const save = async (action: "update" | "done" | "cancel" = "update") => {
     setError(null);
     setIsSaving(true);
     try {
-      await onSave(draft);
-    } catch {
-      setError("Не удалось сохранить событие. Повторите ещё раз.");
+      await onSave(draft.kind === "reminder" ? { ...(action === "update" ? draft : event), reminderAction: action } : draft);
+    } catch (error) {
+      setError(draft.kind === "reminder" && error instanceof Error ? error.message : "Не удалось сохранить событие. Повторите ещё раз.");
       setIsSaving(false);
     }
   };
   const remove = async () => {
+    if (draft.kind === "reminder") { await save("cancel"); return; }
     if (!event.isNew && !window.confirm("Удалить это событие?")) return;
     setError(null);
     setIsDeleting(true);
@@ -1572,8 +1581,8 @@ function CalendarEventModal({
   return (
     <Modal onClose={onClose}>
       <div className="modal-top">
-        <span>СОБЫТИЕ В КАЛЕНДАРЕ</span>
-        <button onClick={onClose}>
+        <span>{draft.kind === "reminder" ? "Напоминание" : "СОБЫТИЕ В КАЛЕНДАРЕ"}</span>
+        <button onClick={onClose} aria-label="Закрыть событие">
           <X size={18} />
         </button>
       </div>
@@ -1617,6 +1626,7 @@ function CalendarEventModal({
         Тип
         <select
           value={draft.kind}
+          disabled={draft.kind === "reminder"}
           onChange={(e) => {
             const kind = e.target.value as PlannerEvent["kind"];
             setDraft({
@@ -1629,6 +1639,7 @@ function CalendarEventModal({
             });
           }}
         >
+          {draft.kind === "reminder" ? <option value="reminder">Напоминание</option> : null}
           <option value="meeting">Встреча</option>
           <option value="task">Задача</option>
           <option value="lesson">Урок</option>
@@ -1652,15 +1663,17 @@ function CalendarEventModal({
           </select>
         </label>
       ) : null}
-      {error ? <p className="modal-error">{error}</p> : null}
+      {draft.kind === "reminder" ? <p className="reminder-calendar-note"><Bell size={15} aria-hidden="true" />Одно уведомление в Telegram в назначенное время.</p> : null}
+      {error ? <p className="modal-error" role="alert">{error}</p> : null}
       <div className="modal-footer">
         <button
           className="delete-button"
           disabled={isSaving || isDeleting}
           onClick={() => void remove()}
         >
-          <Trash2 size={15} /> {isDeleting ? "Удаляю…" : "Удалить"}
+          <Trash2 size={15} /> {draft.kind === "reminder" ? "Отменить" : isDeleting ? "Удаляю…" : "Удалить"}
         </button>
+        {draft.kind === "reminder" ? <button className="reminder-done-button" disabled={isSaving || isDeleting} onClick={() => void save("done")}><CircleCheck size={16} />Готово</button> : null}
         <button
           className="complete-modal"
           disabled={

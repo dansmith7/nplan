@@ -1,0 +1,58 @@
+begin;
+do $$
+declare
+  u uuid := (select id from public.profiles order by id limit 1);
+  other_user uuid := (select id from public.profiles order by id offset 1 limit 1);
+  inbox uuid := gen_random_uuid(); rid uuid := gen_random_uuid(); result jsonb; n integer;
+  due timestamptz := now()+interval '2 hours';
+  delivery timestamptz := now()-interval '1 minute'; lease uuid;
+begin
+  insert into public.inbox_items(id,user_id,source,external_id,title,raw_text) values(inbox,u,'telegram',rid::text,'calendar reminder transaction fixture','Full reminder description');
+  insert into public.telegram_quick_reminders(id,user_id,inbox_id,chat_id,title,raw_text,timezone,offer_message_id)
+    values(rid,u,inbox,123456,'calendar reminder transaction fixture','Full reminder description','Europe/Istanbul',123456);
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);
+  select count(*) into n from public.calendar_quick_reminders(now(),now()+interval '1 day') where id=rid;
+  assert n=0, 'draft must not appear in calendar';
+  result:=public.change_telegram_quick_reminder(u,rid,0,'schedule',due);
+  select count(*) into n from public.calendar_quick_reminders(now(),now()+interval '1 day') where id=rid and revision=1 and description='Full reminder description';
+  assert n=1, 'scheduled reminder appears exactly once';
+  assert not exists(select 1 from public.calendar_events where id=rid), 'no shadow meeting and no calendar lead notifications';
+  result:=public.update_calendar_quick_reminder(rid,1,'update','Changed in calendar',due+interval '1 hour');
+  assert (result->>'ok')::boolean, 'calendar can move and rename reminder';
+  assert not result ? 'reminder', 'never leak bot metadata in RPC result';
+  assert (select revision=2 and due_at=due+interval '1 hour' and title='Changed in calendar' from public.telegram_quick_reminders where id=rid), 'bot and calendar share same row';
+  result:=public.change_telegram_quick_reminder(u,rid,1,'schedule',due+interval '2 hours');
+  assert result->>'reason'='stale', 'old bot card cannot overwrite calendar move';
+  result:=public.change_telegram_quick_reminder(u,rid,2,'schedule',due+interval '2 hours');
+  assert (result->>'ok')::boolean, 'current bot card can move reminder';
+  assert exists(select 1 from public.calendar_quick_reminders(now(),now()+interval '1 day') where id=rid and due_at=due+interval '2 hours' and revision=3), 'bot move reflected in projection';
+  result:=public.update_calendar_quick_reminder(rid,2,'cancel');
+  assert result->>'reason'='stale', 'stale browser cannot cancel newly moved reminder';
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',other_user,'role','authenticated')::text,true);
+  assert not exists(select 1 from public.calendar_quick_reminders(now(),now()+interval '1 day') where id=rid), 'cannot read another user reminder';
+  result:=public.update_calendar_quick_reminder(rid,3,'cancel');
+  assert result->>'reason'='not_found', 'cannot mutate another user reminder';
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);
+  update public.telegram_quick_reminders set status='sent',attempts=1,delivered_at=delivery,telegram_message_id=123457 where id=rid;
+  result:=public.update_calendar_quick_reminder(rid,3,'update','Title edit after delivery',due+interval '2 hours');
+  assert (result->>'ok')::boolean, 'title-only edit succeeds';
+  assert (select status='sent' and attempts=1 and delivered_at=delivery and revision=4 from public.telegram_quick_reminders where id=rid), 'title-only edit must not send again';
+  assert (select count(*)=2 from public.telegram_reminder_card_updates where reminder_id=rid), 'both existing bot cards queued for edit';
+  update public.telegram_reminder_card_updates set next_attempt_at=now()-interval '1 year' where reminder_id=rid;
+  select lease_id into lease from public.claim_telegram_reminder_card_updates(u) where reminder_id=rid and message_id=123456;
+  assert lease is not null, 'worker leases card update';
+  select count(*) into n from public.claim_telegram_reminder_card_updates(u) where reminder_id=rid;
+  assert n=0, 'overlapping worker cannot edit same card';
+  result:=public.update_calendar_quick_reminder(rid,4,'done');
+  assert (result->>'ok')::boolean, 'calendar can complete reminder';
+  assert (select status='done' from public.telegram_quick_reminders where id=rid), 'completion persisted in bot row';
+  assert not exists(select 1 from public.calendar_quick_reminders(now(),now()+interval '1 day') where id=rid), 'completed reminder disappears from calendar';
+  assert (select lease_id=lease and revision=5 from public.telegram_reminder_card_updates where reminder_id=rid and message_id=123456), 'new revision must preserve in-flight lease';
+  select count(*) into n from public.claim_telegram_reminder_card_updates(u) where reminder_id=rid;
+  assert n=0, 'new revision waits for old card edit before applying latest state';
+  assert not has_table_privilege('authenticated','public.telegram_quick_reminders','select'), 'browser has no direct bot state access';
+  assert not has_table_privilege('authenticated','public.telegram_reminder_card_updates','select'), 'outbox is private';
+  assert not has_function_privilege('anon','public.calendar_quick_reminders(timestamptz,timestamptz)','execute'), 'anonymous cannot use projection';
+  assert not has_function_privilege('anon','public.update_calendar_quick_reminder(uuid,integer,text,text,timestamptz)','execute'), 'anonymous cannot mutate reminders';
+end $$;
+rollback;

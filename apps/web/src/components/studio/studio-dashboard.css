@@ -2681,3 +2681,15 @@ html.studio-shell-active.tauri-window #root {
     min-height: 36px;
   }
 }
+
+/* A reminder is a point in time, with one Telegram notification. */
+.calendar-event.reminder,
+.home-event.reminder,
+.mobile-calendar-card.reminder {
+  background: var(--today);
+  color: var(--ink);
+}
+.calendar-event.reminder { border-inline-start: 3px solid var(--ink); }
+.reminder-calendar-note { display:flex; align-items:center; gap:8px; margin:4px 0; color:var(--ink); font-size:14px; }
+.reminder-done-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--ink); cursor:pointer; }
+.reminder-done-button:disabled { opacity:.6; cursor:wait; }

@@ -1,3 +1,4 @@
+import { updateReminderCards } from "./cards.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import { sendReminder, type Delivery } from "../telegram-reminders/core.ts";
 import {
@@ -137,7 +138,13 @@ Deno.serve(async (request) => {
       if (saveError) throw saveError;
       counts[status]++;
     }
-    return json({ ok: true, claimed: claims.length, ...counts });
+    const cardEdits = await updateReminderCards(db, api, owner.id, chatId);
+    return json({
+      ok: true,
+      claimed: claims.length,
+      ...counts,
+      card_edits: cardEdits,
+    });
   } catch {
     console.error("Telegram quick reminder worker failed");
     return json({ error: "Quick reminder worker failed" }, 500);

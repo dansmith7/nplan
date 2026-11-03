@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { reminderStartAt } from "@/lib/planner-calendar-reminders";
 import {
   Bell,
@@ -1583,7 +1584,7 @@ function CalendarEventModal({
     }
   };
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} reminder={draft.kind === "reminder"}>
       <div className="modal-top">
         <span>{draft.kind === "reminder" ? "Напоминание" : "СОБЫТИЕ В КАЛЕНДАРЕ"}</span>
         <button onClick={onClose} aria-label="Закрыть событие">
@@ -1593,7 +1594,7 @@ function CalendarEventModal({
       <label>
         Название
         <input
-          autoFocus
+          autoFocus={draft.kind !== "reminder"}
           value={draft.title}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
           placeholder="Например, встреча"
@@ -2550,10 +2551,29 @@ function NotificationSettingsModal({ onClose }: { onClose: () => void }) {
 function Modal({
   children,
   onClose,
+  reminder = false,
 }: {
   children: React.ReactNode;
   onClose: () => void;
+  reminder?: boolean;
 }) {
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+  if (reminder) return (
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="reminder-calendar-overlay" />
+        <div className="reminder-calendar-position">
+          <Dialog.Content className="planner-modal" aria-describedby={undefined}
+            onOpenAutoFocus={() => { triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+            onCloseAutoFocus={(event) => { event.preventDefault(); triggerRef.current?.focus({ preventScroll: true }); }}
+          >
+            <Dialog.Title className="sr-only">Напоминание</Dialog.Title>
+            {children}
+          </Dialog.Content>
+        </div>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <section

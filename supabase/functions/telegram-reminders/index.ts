@@ -1,3 +1,4 @@
+import { deliverCalendarChanges } from "./changes.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import {
   isCurrentEvent,
@@ -115,7 +116,14 @@ Deno.serve(async (request) => {
       if (saveError) throw saveError; // do not resend if Telegram succeeded but persistence failed
       counts[delivery.status]++;
     }
-    return json({ ok: true, claimed: claims.length, ...counts });
+    const changes = await deliverCalendarChanges(
+      db,
+      token,
+      chatId,
+      owner.id,
+      timezone
+    );
+    return json({ ok: true, claimed: claims.length, ...counts, changes });
   } catch {
     console.error("Telegram reminder worker failed");
     return json({ error: "Reminder worker failed" }, 500);

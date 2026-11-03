@@ -175,3 +175,90 @@ export function normalizeGoogleEvents(
   if (result.size > 1000) throw new SyncError("google_snapshot_too_large");
   return [...result.values()];
 }
+
+export type TrackedGoogleEvent = { source_id: string; google_id: string };
+/** Resolve missing known events before reconciliation. A bounded list is not a
+ * cancellation feed: a moved meeting can now be outside the requested window. */
+export async function reconcileGoogleEvents(
+  events: GoogleEvent[],
+  tracked: TrackedGoogleEvent[],
+  token: string,
+  from: string,
+  to: string,
+  request: typeof fetch = fetch
+) {
+  const identities = new Map(tracked.map((t) => [t.google_id, t.source_id]));
+  const active = normalizeGoogleEvents(events, from, to).map((e) => ({
+    ...e,
+    source_id: identities.get(e.google_id) ?? e.source_id,
+  }));
+  const seen = new Set(active.map((e) => e.source_id));
+  const raw = new Map(events.map((e) => [e.id, e]));
+  const missing = tracked.filter((t) => !seen.has(t.source_id));
+  const resolved: Array<
+    (typeof active)[number] | { source_id: string; cancelled: true }
+  > = [];
+  const deadline = Date.now() + 15000;
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(5, missing.length) }, async () => {
+      for (;;) {
+        const item = missing[cursor++];
+        if (!item) return;
+        // Known but declined/all-day/out of organizer scope: remove silently.
+        const present = raw.get(item.google_id);
+        if (present && present.status !== "cancelled") {
+          const normalized = normalizeGoogleEvents(
+            [present],
+            "1900-01-01T00:00:00Z",
+            "2200-01-01T00:00:00Z"
+          );
+          if (normalized[0])
+            resolved.push({ ...normalized[0], source_id: item.source_id });
+          continue;
+        }
+        if (Date.now() > deadline)
+          throw new SyncError("google_missing_events_incomplete");
+        const url = new URL(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(SOURCE_ACCOUNT)}/events/${encodeURIComponent(item.google_id)}`
+        );
+        url.searchParams.set(
+          "fields",
+          "id,status,summary,description,location,htmlLink,hangoutLink,updated,organizer(email),attendees(self,responseStatus),start,end,recurringEventId,originalStartTime"
+        );
+        const response = await request(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(
+            Math.min(8000, Math.max(1, deadline - Date.now()))
+          ),
+          redirect: "error",
+        });
+        if (response.status === 404 || response.status === 410) {
+          resolved.push({ source_id: item.source_id, cancelled: true });
+          continue;
+        }
+        if (!response.ok)
+          throw new SyncError("google_missing_events_incomplete");
+        const event = (await response.json()) as GoogleEvent;
+        if (event.id !== item.google_id)
+          throw new SyncError("google_event_identity_invalid");
+        if (event.status === "cancelled") {
+          resolved.push({ source_id: item.source_id, cancelled: true });
+          continue;
+        }
+        // A known event may move beyond the ordinary 180-day import window.
+        const normalized = normalizeGoogleEvents(
+          [event],
+          "1900-01-01T00:00:00Z",
+          "2200-01-01T00:00:00Z"
+        );
+        if (normalized[0])
+          resolved.push({ ...normalized[0], source_id: item.source_id });
+      }
+    })
+  );
+  const result = [...active, ...resolved];
+  if (new Set(result.map((e) => e.source_id)).size !== result.length)
+    throw new SyncError("google_identity_duplicate");
+  return result;
+}

@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 import {
   verifyGoogleAccount,
   fetchGoogleEvents,
-  normalizeGoogleEvents,
+  reconcileGoogleEvents,
   SyncError,
 } from "./core.ts";
 const json = (body: unknown, status = 200) =>
@@ -54,8 +54,19 @@ Deno.serve(async (request) => {
     const now = Date.now();
     const from = new Date(now - 7 * 86400000).toISOString(),
       to = new Date(now + 180 * 86400000).toISOString();
-    const events = normalizeGoogleEvents(
+    const { data: tracked, error: trackedError } = await db
+      .from("google_calendar_event_links")
+      .select("source_id,google_id")
+      .eq("user_id", ownerId)
+      .eq("active", true)
+      .gte("starts_at", from)
+      .limit(1001);
+    if (trackedError) throw trackedError;
+    if (tracked.length > 1000) throw new SyncError("google_snapshot_too_large");
+    const events = await reconcileGoogleEvents(
       await fetchGoogleEvents(token, from, to),
+      tracked,
+      token,
       from,
       to
     );

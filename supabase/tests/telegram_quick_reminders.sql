@@ -1,0 +1,73 @@
+begin;
+do $$
+declare
+  u uuid := (select id from public.profiles order by id limit 1);
+  other_user uuid := (select id from public.profiles order by id offset 1 limit 1);
+  inbox uuid := gen_random_uuid(); r_id uuid := gen_random_uuid(); result jsonb; n integer;
+  due timestamptz := now()+interval '1 hour';
+begin
+  insert into public.inbox_items(id,user_id,source,external_id,title,raw_text) values(inbox,u,'telegram','quick-reminder-transaction-fixture','Напоминание','Исходное описание');
+  insert into public.telegram_quick_reminders(id,user_id,inbox_id,chat_id,title,raw_text,timezone,proposed_at)
+    values(r_id,u,inbox,123456,'Напоминание','Исходное описание','Europe/Istanbul',due);
+  assert (select status='new' from public.inbox_items where id=inbox), 'draft remains in inbox';
+  result:=public.change_telegram_quick_reminder(other_user,r_id,0,'schedule',due);
+  assert result->>'reason'='not_found', 'cannot change another user reminder';
+  result:=public.change_telegram_quick_reminder(u,r_id,0,'schedule',now()-interval '1 minute');
+  assert result->>'reason'='invalid_time', 'never schedule in past';
+  assert (select status='new' from public.inbox_items where id=inbox), 'rejected schedule must leave inbox untouched';
+  result:=public.change_telegram_quick_reminder(u,r_id,0,'schedule',due);
+  assert (result->>'ok')::boolean, 'first schedule succeeds';
+  assert (select status='promoted' and metadata->>'quick_reminder_id'=r_id::text from public.inbox_items where id=inbox), 'schedule atomically converts source';
+  assert (select raw_text='Исходное описание' from public.inbox_items where id=inbox), 'description preserved';
+  result:=public.change_telegram_quick_reminder(u,r_id,0,'schedule',due+interval '1 hour');
+  assert result->>'reason'='stale', 'double tap cannot schedule twice';
+  assert (select due_at=due and revision=1 from public.telegram_quick_reminders where id=r_id), 'stale callback cannot move reminder';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,999,due);
+  assert n=0, 'claim must check recipient';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due-interval '1 second');
+  assert n=0, 'not before due time';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due);
+  assert n=1, 'due reminder is claimed once';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due);
+  assert n=0, 'overlapping worker cannot claim same delivery';
+  result:=public.change_telegram_quick_reminder(u,r_id,1,'cancel');
+  assert result->>'reason'='busy', 'cannot race cancellation with in-flight send';
+  update public.telegram_quick_reminders set status='sent',telegram_message_id=42,delivered_at=due where id=r_id;
+  result:=public.change_telegram_quick_reminder(u,r_id,1,'schedule',due+interval '15 minutes');
+  assert (result->>'ok')::boolean, 'delivered reminder can be snoozed';
+  assert (select revision=2 and attempts=0 and telegram_message_id is null from public.telegram_quick_reminders where id=r_id), 'snooze creates new revision and delivery';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due);
+  assert n=0, 'old time no longer delivers';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due+interval '15 minutes');
+  assert n=1, 'new time delivers';
+  update public.telegram_quick_reminders set status='uncertain' where id=r_id;
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due+interval '16 minutes');
+  assert n=0, 'unknown Telegram result never blindly resent';
+  result:=public.change_telegram_quick_reminder(u,r_id,2,'done');
+  assert (result->>'ok')::boolean, 'can mark done';
+  result:=public.change_telegram_quick_reminder(u,r_id,3,'schedule',due);
+  assert result->>'reason'='finished', 'old cards cannot revive finished reminder';
+
+  -- A source already promoted to a task/collection must not also become a reminder.
+  update public.telegram_quick_reminders set status='draft',revision=4,due_at=null where id=r_id;
+  result:=public.change_telegram_quick_reminder(u,r_id,4,'schedule',due);
+  assert result->>'reason'='source_processed', 'processed inbox item cannot be converted twice';
+  update public.inbox_items set status='new' where id=inbox;
+  result:=public.change_telegram_quick_reminder(u,r_id,4,'schedule',due);
+  update public.telegram_quick_reminders set status='failed',attempts=1,next_attempt_at=due+interval '1 minute' where id=r_id;
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due);
+  assert n=0, 'respects retry delay';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due+interval '1 minute');
+  assert n=1, 'explicit Telegram failure can retry';
+  update public.telegram_quick_reminders set status='failed',attempts=3,next_attempt_at=due where id=r_id;
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due+interval '2 minutes');
+  assert n=0, 'bounded retries';
+  result:=public.change_telegram_quick_reminder(u,r_id,5,'cancel');
+  assert (result->>'ok')::boolean, 'cancel succeeds';
+  select count(*) into n from public.claim_telegram_quick_reminders(u,123456,due+interval '1 day');
+  assert n=0, 'cancelled reminder never sends';
+  assert not has_table_privilege('anon','public.telegram_quick_reminders','select'), 'anonymous access denied';
+  assert not has_table_privilege('authenticated','public.telegram_reminder_inputs','select'), 'browser cannot read pending bot prompts';
+  assert not has_function_privilege('authenticated','public.change_telegram_quick_reminder(uuid,uuid,integer,text,timestamptz)','execute'), 'only service can mutate reminders';
+end $$;
+rollback;

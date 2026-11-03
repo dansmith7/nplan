@@ -69,7 +69,8 @@ export async function sendReminder(
   token: string,
   chatId: string,
   text: string,
-  request: typeof fetch = fetch
+  request: typeof fetch = fetch,
+  replyMarkup?: unknown
 ): Promise<Delivery> {
   let response: Response;
   try {
@@ -81,6 +82,7 @@ export async function sendReminder(
         body: JSON.stringify({
           chat_id: chatId,
           text,
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
           link_preview_options: { is_disabled: true },
         }),
         signal: AbortSignal.timeout(12_000),

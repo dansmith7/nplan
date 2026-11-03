@@ -58,7 +58,7 @@ lives in Telegram; this release does not add a reminder list to the web calendar
 
 ## Checks
 
-- `bun test supabase/functions/_shared/quick-reminders.test.ts supabase/functions/telegram-reminders/core.test.ts supabase/functions/google-calendar-sync/core.test.ts`
+- `bun test supabase/functions/_shared/quick-reminders.test.ts supabase/functions/telegram-webhook/quick.test.ts supabase/functions/telegram-reminders/core.test.ts supabase/functions/google-calendar-sync/core.test.ts`
 - Deno check webhook/quick worker outside the Bun monorepo.
 - `supabase/tests/telegram_quick_reminders.sql`: transactional fixtures roll back.
 - Existing Google sync and calendar notification cron health remain independent.

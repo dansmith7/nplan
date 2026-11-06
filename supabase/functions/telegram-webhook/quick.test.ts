@@ -22,22 +22,44 @@ function fixture(
   const apiCalls: Array<{ method: string; text: string; markup?: unknown }> =
     [];
   const filters: Array<[string, unknown]> = [];
+  const writes: Array<{ table: string; values: Record<string, unknown> }> = [];
+  const rpcNames: string[] = [];
   const db = {
     from(table: string) {
       const query = {
         select: () => query,
+        update: (values: Record<string, unknown>) => {
+          writes.push({ table, values });
+          return query;
+        },
+        upsert: (values: Record<string, unknown>) => {
+          writes.push({ table, values });
+          return query;
+        },
+        gt: () => query,
+        gte: () => query,
+        order: () => query,
+        limit: () => query,
+        then: (resolve: (v: unknown) => unknown) =>
+          Promise.resolve({ error: null }).then(resolve),
         eq: (key: string, value: unknown) => {
           filters.push([key, value]);
           return query;
         },
         maybeSingle: async () => ({
-          data: table === "telegram_reminder_inputs" ? input : current,
+          data:
+            table === "telegram_reminder_inputs"
+              ? input
+              : table === "telegram_reminder_time_replies"
+                ? null
+                : current,
           error: null,
         }),
       };
       return query;
     },
     rpc: async (_name: string, args: Record<string, unknown>) => {
+      rpcNames.push(_name);
       rpcCalls.push(args);
       current = {
         ...current,
@@ -70,7 +92,7 @@ function fixture(
       },
     },
   } as unknown as Context;
-  return { c, rpcCalls, apiCalls, filters };
+  return { c, rpcCalls, rpcNames, apiCalls, filters, writes };
 }
 test("a second tap on the same card does not mutate the schedule again", async () => {
   const f = fixture();
@@ -151,4 +173,113 @@ test("recurring draft custom time respects its named weekday", async () => {
   );
   await consumeTimeReply(f.c, 7, "в 10:00");
   expect(f.rpcCalls[0].p_due_at).toBe("2026-11-04T07:00:00.000Z");
+});
+
+const openInput = {
+  reminder_id: row.id,
+  prompt_message_id: 42,
+  revision: 0,
+  accept_unthreaded: true,
+  created_at: "2026-11-03T11:59:00Z",
+  expires_at: "2026-11-03T12:14:00Z",
+};
+test("picker opens a recent context that accepts the next time message", async () => {
+  const f = fixture();
+  await handleQuickCallback(f.c, callback(row, "pick"), 42);
+  expect(f.apiCalls[0].text).toContain("следующим сообщением");
+  expect(
+    f.writes.some(
+      (w) =>
+        w.table === "telegram_reminder_inputs" &&
+        w.values.prompt_message_id === 42 &&
+        w.values.accept_unthreaded === true
+    )
+  ).toBe(true);
+});
+test("a plain time following the picker schedules the original reminder atomically", async () => {
+  const f = fixture({ ...row, title: "взять с собой еду" }, openInput);
+  expect(await consumeTimeReply(f.c, undefined, "сегодня в 19:05", 100)).toBe(
+    true
+  );
+  expect(f.rpcNames[0]).toBe("apply_telegram_reminder_time_reply");
+  expect(f.rpcCalls[0]).toMatchObject({
+    p_message_id: 100,
+    p_prompt_message_id: 42,
+    p_revision: 0,
+    p_due_at: "2026-11-03T16:05:00.000Z",
+  });
+  expect(f.apiCalls[0].text).toContain("взять с собой еду");
+  expect(f.apiCalls[0].method).toBe("edit");
+});
+test("a new task with a time keeps the inbox flow and closes implicit time input", async () => {
+  const f = fixture({ ...row }, openInput);
+  expect(
+    await consumeTimeReply(f.c, undefined, "купить хлеб завтра в 9:05", 100)
+  ).toBe(false);
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.writes.some((w) => w.values.accept_unthreaded === false)).toBe(true);
+});
+test("a past time stays unscheduled and is consumed instead of becoming an orphan", async () => {
+  const f = fixture({ ...row }, openInput);
+  expect(await consumeTimeReply(f.c, undefined, "сегодня в 9:05", 100)).toBe(
+    true
+  );
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.apiCalls[0].text).toContain("будущее время");
+});
+test("an old or closed picker gives guidance instead of creating an orphan time entry", async () => {
+  for (const input of [
+    { ...openInput, created_at: "2026-11-03T11:00:00Z" },
+    { ...openInput, accept_unthreaded: false },
+    { ...openInput, expires_at: "2026-11-03T11:59:00Z" },
+  ]) {
+    const f = fixture({ ...row }, input);
+    expect(await consumeTimeReply(f.c, undefined, "завтра в 9:05", 100)).toBe(
+      true
+    );
+    expect(f.rpcCalls).toHaveLength(0);
+  }
+});
+test("a changed reminder cannot be overwritten by an unthreaded stale reply", async () => {
+  const f = fixture({ ...row, revision: 1, status: "scheduled" }, openInput);
+  expect(await consumeTimeReply(f.c, undefined, "завтра в 9:05", 100)).toBe(
+    true
+  );
+  expect(f.rpcCalls).toHaveLength(0);
+});
+test("unrelated explicit replies never borrow the last picker", async () => {
+  const f = fixture();
+  expect(await consumeTimeReply(f.c, 900, "завтра в 9:05", 100)).toBe(true);
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.filters).toContainEqual(["prompt_message_id", 900]);
+});
+test("a redelivered time answer is consumed without another confirmation or inbox record", async () => {
+  const f = fixture();
+  const original = f.c.db.from.bind(f.c.db);
+  f.c.db.from = ((table: string) =>
+    table === "telegram_reminder_time_replies"
+      ? {
+          select() {
+            return this;
+          },
+          eq() {
+            return this;
+          },
+          maybeSingle: async () => ({ data: { message_id: 100 }, error: null }),
+        }
+      : original(table)) as typeof f.c.db.from;
+  expect(await consumeTimeReply(f.c, undefined, "сегодня в 19:05", 100)).toBe(
+    true
+  );
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.apiCalls).toHaveLength(0);
+});
+
+test("a bare time with no open question never becomes a standalone inbox item", async () => {
+  const f = fixture();
+  expect(await consumeTimeReply(f.c, undefined, "завтра в 9:05", 100)).toBe(
+    true
+  );
+  expect(f.rpcCalls).toHaveLength(0);
+  expect(f.apiCalls[0].text).toContain("/reminders");
 });

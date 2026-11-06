@@ -1,3 +1,4 @@
+import { isReminderTimeAnswer } from "../_shared/reminder-time-answer.ts";
 import { parseReminderInput } from "../_shared/recurring-reminders.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.118.0";
 import {
@@ -23,6 +24,41 @@ export type Context = {
   now?: () => Date;
 };
 const time = (c: Context) => c.now?.() ?? new Date();
+async function clearTimeContext(c: Context) {
+  const { error } = await c.db
+    .from("telegram_reminder_inputs")
+    .update({ accept_unthreaded: false })
+    .eq("user_id", c.ownerId)
+    .eq("chat_id", c.chatId)
+    .eq("accept_unthreaded", true);
+  if (error) throw error;
+}
+async function rememberTimeContext(
+  c: Context,
+  r: QuickReminder,
+  messageId: number,
+  custom = false
+) {
+  await clearTimeContext(c);
+  const now = time(c);
+  const { error } = await c.db.from("telegram_reminder_inputs").upsert(
+    {
+      user_id: c.ownerId,
+      chat_id: c.chatId,
+      prompt_message_id: messageId,
+      reminder_id: r.id,
+      revision: r.revision,
+      created_at: now.toISOString(),
+      expires_at: new Date(
+        +now + (custom ? 86400000 : 15 * 60000)
+      ).toISOString(),
+      accept_unthreaded: true,
+    },
+    { onConflict: "user_id,chat_id,prompt_message_id" }
+  );
+  if (error) throw error;
+}
+
 async function getReminder(
   c: Context,
   id: string
@@ -46,12 +82,12 @@ async function show(
   if (messageId) {
     try {
       await c.api.edit(c.chatId, messageId, text, markup);
-      return;
+      return messageId;
     } catch {
       /* An old card may no longer be editable. The reminder is already persisted. */
     }
   }
-  await c.api.send(c.chatId, text, markup);
+  return await c.api.send(c.chatId, text, markup);
 }
 async function change(
   c: Context,
@@ -74,9 +110,33 @@ async function apply(
   r: QuickReminder,
   dueAt: string | null,
   messageId: number | null,
-  action = "schedule"
+  action = "schedule",
+  input?: { messageId: number; promptMessageId: number }
 ) {
-  const result = await change(c, r, action, dueAt);
+  const result = input
+    ? await (async () => {
+        const { data, error } = await c.db.rpc(
+          "apply_telegram_reminder_time_reply",
+          {
+            p_user_id: c.ownerId,
+            p_chat_id: c.chatId,
+            p_message_id: input.messageId,
+            p_prompt_message_id: input.promptMessageId,
+            p_revision: r.revision,
+            p_due_at: dueAt,
+          }
+        );
+        if (error) throw error;
+        return data as {
+          ok: boolean;
+          reason?: string;
+          reminder?: QuickReminder;
+          duplicate?: boolean;
+        };
+      })()
+    : await change(c, r, action, dueAt);
+  if ("duplicate" in result && result.duplicate) return;
+  if (result.ok && !input) await clearTimeContext(c);
   const current = result.reminder ?? r;
   const reason =
     result.reason === "source_processed"
@@ -104,21 +164,14 @@ async function apply(
 async function askTime(c: Context, r: QuickReminder) {
   const prompt = await c.api.send(
     c.chatId,
-    `Когда напомнить: «${r.title}»?\nОтветь на это сообщение, например: «завтра в 19:30», «через час» или «05.11 в 10:30».\nЧасовой пояс: ${r.timezone}. Для выхода ответь «отмена».`,
+    `Когда напомнить: «${r.title}»?\nОтветь на это сообщение, например: «завтра в 19:30», «через час» или «05.11 в 10:30».\nЧасовой пояс: ${r.timezone}. Можно написать время следующим сообщением. Для выхода ответь «отмена».`,
     {
       force_reply: true,
       selective: true,
       input_field_placeholder: "Например, завтра в 19:30",
     }
   );
-  const { error } = await c.db.from("telegram_reminder_inputs").insert({
-    user_id: c.ownerId,
-    chat_id: c.chatId,
-    prompt_message_id: prompt,
-    reminder_id: r.id,
-    revision: r.revision,
-  });
-  if (error) throw error;
+  await rememberTimeContext(c, r, prompt, true);
 }
 export async function handleQuickCallback(
   c: Context,
@@ -154,6 +207,7 @@ export async function handleQuickCallback(
     return;
   }
   if (command.action === "repeat") {
+    await clearTimeContext(c);
     await show(
       c,
       messageId,
@@ -184,15 +238,17 @@ export async function handleQuickCallback(
     return;
   }
   if (command.action === "pick") {
-    await show(
+    const promptId = await show(
       c,
       messageId,
-      `Когда напомнить?\n${r.title}\nЧасовой пояс: ${r.timezone}`,
+      `Когда напомнить?\n${r.title}\nНапиши время следующим сообщением, например «сегодня в 9:05», или выбери кнопку.\nЧасовой пояс: ${r.timezone}`,
       pickerButtons(r)
     );
+    await rememberTimeContext(c, r, promptId);
     return;
   }
   if (command.action === "back") {
+    await clearTimeContext(c);
     await show(c, messageId, quickCard(r), manageButtons(r));
     return;
   }
@@ -210,29 +266,67 @@ export async function handleQuickCallback(
       : quickPreset(command.action, r.timezone, time(c));
   await apply(c, r, dueAt, messageId);
 }
+async function explainUnboundTime(c: Context) {
+  await c.api.send(
+    c.chatId,
+    "Не вижу открытого запроса времени. Открой нужную запись через /reminders, выбери «Создать» или «Изменить время» и отправь время ещё раз."
+  );
+  return true;
+}
 export async function consumeTimeReply(
   c: Context,
   replyId: number | undefined,
-  text: string
+  text: string,
+  messageId?: number
 ): Promise<boolean> {
-  if (!replyId) return false;
-  const { data: input, error } = await c.db
+  const bareAnswer = isReminderTimeAnswer(text);
+  if (!replyId && !bareAnswer) {
+    await clearTimeContext(c);
+    return false;
+  }
+  if (messageId !== undefined) {
+    const { data: receipt, error } = await c.db
+      .from("telegram_reminder_time_replies")
+      .select("message_id")
+      .eq("user_id", c.ownerId)
+      .eq("chat_id", c.chatId)
+      .eq("message_id", messageId)
+      .maybeSingle();
+    if (error) throw error;
+    if (receipt) return true;
+  }
+  let query = c.db
     .from("telegram_reminder_inputs")
     .select("*")
     .eq("user_id", c.ownerId)
-    .eq("chat_id", c.chatId)
-    .eq("prompt_message_id", replyId)
-    .maybeSingle();
+    .eq("chat_id", c.chatId);
+  if (replyId) query = query.eq("prompt_message_id", replyId);
+  else
+    query = query
+      .eq("accept_unthreaded", true)
+      .gt("expires_at", time(c).toISOString())
+      .gte("created_at", new Date(+time(c) - 15 * 60000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1);
+  const { data: input, error } = await query.maybeSingle();
   if (error) throw error;
-  if (!input) return false;
+  if (!input) return bareAnswer ? await explainUnboundTime(c) : false;
+  if (
+    !replyId &&
+    (!input.accept_unthreaded ||
+      !input.created_at ||
+      +new Date(input.created_at) < +time(c) - 15 * 60000 ||
+      +new Date(input.expires_at) <= +time(c))
+  )
+    return await explainUnboundTime(c);
   const r = await getReminder(c, input.reminder_id);
   if (/^\/?отмена$|^\/cancel$/iu.test(text.trim())) {
     const { error: cancelled } = await c.db
       .from("telegram_reminder_inputs")
-      .update({ expires_at: time(c).toISOString() })
+      .update({ expires_at: time(c).toISOString(), accept_unthreaded: false })
       .eq("user_id", c.ownerId)
       .eq("chat_id", c.chatId)
-      .eq("prompt_message_id", replyId);
+      .eq("prompt_message_id", input.prompt_message_id);
     if (cancelled) throw cancelled;
     await c.api.send(
       c.chatId,
@@ -245,6 +339,10 @@ export async function consumeTimeReply(
     r.revision !== input.revision ||
     new Date(input.expires_at) < time(c)
   ) {
+    if (!replyId) {
+      await clearTimeContext(c);
+      return await explainUnboundTime(c);
+    }
     await c.api.send(
       c.chatId,
       "Этот запрос времени устарел. Открой «Изменить время» у напоминания ещё раз."
@@ -274,7 +372,16 @@ export async function consumeTimeReply(
     await askTime(c, r);
     return true;
   }
-  await apply(c, r, parsed.dueAt, null);
+  await apply(
+    c,
+    r,
+    parsed.dueAt,
+    replyId ? null : input.prompt_message_id,
+    "schedule",
+    messageId !== undefined
+      ? { messageId, promptMessageId: input.prompt_message_id }
+      : undefined
+  );
   return true;
 }
 export async function offerQuickReminder(

@@ -106,7 +106,8 @@ Deno.serve(async (request) => {
       await consumeTimeReply(
         context,
         message.reply_to_message?.message_id,
-        text
+        text,
+        message.message_id
       )
     )
       return json({ ok: true });

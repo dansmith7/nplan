@@ -18,8 +18,15 @@ The worker delivers ONE notification at/after the selected time (minute cron),
 independent of calendar lesson/meeting 60/30/10-minute lead notifications.
 Late deliveries are not silently dropped after an outage. A delivered card has
 Done, snooze 15/60 minutes, change time, cancel. `/reminders` reopens recent cards.
-Custom time replies must target that reminder's ForceReply prompt; ordinary
-messages remain independent inbox entries. Reply `отмена` to leave that prompt.
+After “Когда напомнить?”, a bare time can be sent as the next chat message
+for 15 minutes; the same context is opened by “Другое время”. Explicit replies
+to the ForceReply prompt remain valid until its one-day expiry. A new task text,
+“Назад”, a successful action or `отмена` closes implicit input. A time answer
+schedules the original reminder directly; it is not a second inbox item.
+Scheduling and a receipt keyed by incoming Telegram message ID commit together,
+so redelivery cannot create another standalone time entry. Messages with their
+own task text continue through the normal inbox/create-button flow. A bare time
+without an open target gets guidance instead of becoming a standalone inbox item.
 
 ## Integrity and access
 

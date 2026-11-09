@@ -16,6 +16,7 @@ export type QuickReminder = {
   user_id: string;
   chat_id: number | string;
   inbox_id: string | null;
+  task_id?: string | null;
   repeat_rule?: RepeatRule | null;
   proposed_repeat?: RepeatRule | null;
   undo_until?: string | null;
@@ -336,7 +337,7 @@ export function manageButtons(r: QuickReminder): Markup {
       [button(r, "✓ Готово", "done"), button(r, "Изменить время", "pick")],
       [
         button(r, r.repeat_rule ? "Пропустить этот раз" : "Отменить", "cancel"),
-        button(r, "Повтор", "repeat"),
+        ...(r.task_id ? [] : [button(r, "Повтор", "repeat")]),
       ],
     ],
   };

@@ -40,6 +40,7 @@ import { PlannerAnalyticsScreen } from "./planner-analytics-screen";
 import type { CollectionItemType } from "@/hooks/use-planner-movies";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
+import { PlannerWelcome } from "./planner-welcome";
 import {
   getAutoLaunch,
   getNotificationPermission,
@@ -499,6 +500,7 @@ export function StudioDashboard() {
   ];
   return (
     <div className="planner-shell">
+      <PlannerWelcome />
       <aside className="planner-sidebar">
         <div className="planner-mark">n</div>
         <nav>

@@ -1,0 +1,76 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--black);
+  color: var(--paper);
+  pointer-events: none;
+  animation: welcome-screen 1.28s var(--motion-ease-out) both;
+}
+
+.content {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.mark {
+  font: 700 clamp(4.5rem, 12vmin, 7rem) / 0.9 Georgia, serif;
+  color: var(--today);
+  animation: welcome-mark 580ms var(--motion-ease-out) both;
+}
+
+.greeting {
+  font-size: clamp(1.5rem, 5vmin, 2.5rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  animation: welcome-greeting 480ms var(--motion-ease-out) 160ms both;
+}
+
+@keyframes welcome-mark {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes welcome-greeting {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes welcome-screen {
+  0%, 75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen {
+    visibility: hidden;
+    animation-duration: 1ms;
+  }
+
+  .mark,
+  .greeting {
+    animation: none;
+  }
+}

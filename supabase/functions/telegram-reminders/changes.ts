@@ -4,9 +4,9 @@ export type CalendarChange = {
   id: string;
   source_id: string;
   revision: number;
-  kind: "moved" | "cancelled";
+  kind: "created" | "moved" | "cancelled";
   title: string;
-  before_start: string;
+  before_start: string | null;
   before_end: string | null;
   after_start: string | null;
   after_end: string | null;
@@ -24,19 +24,31 @@ export function calendarChangeText(change: CalendarChange, timezone: string) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(time));
+  if (change.kind === "created" && change.after_start)
+    return [
+      "＋ Новая встреча в NPlan",
+      change.title.slice(0, 500),
+      fmt(change.after_start),
+      `Из календаря Алисы · ${timezone}`,
+      "https://nplan-tau.vercel.app/app",
+    ].join("\n");
   const moved = change.kind === "moved";
+  const beforeStart = change.before_start;
   const endOnly =
     moved &&
     change.after_start !== null &&
-    +new Date(change.before_start) === +new Date(change.after_start);
+    beforeStart !== null &&
+    +new Date(beforeStart) === +new Date(change.after_start);
   const range = (start: string, end: string | null) =>
     `${fmt(start)}${endOnly && end ? " — " + new Intl.DateTimeFormat("ru-RU", { timeZone: timezone, hour: "2-digit", minute: "2-digit" }).format(new Date(end)) : ""}`;
   return [
     moved ? "↪ Встреча перенесена" : "✕ Встреча отменена",
     change.title.slice(0, 500),
-    moved
-      ? `Было: ${range(change.before_start, change.before_end)}`
-      : `Была запланирована: ${fmt(change.before_start)}`,
+    beforeStart
+      ? moved
+        ? `Было: ${range(beforeStart, change.before_end)}`
+        : `Была запланирована: ${fmt(beforeStart)}`
+      : null,
     moved && change.after_start
       ? `Стало: ${range(change.after_start, change.after_end)}`
       : null,

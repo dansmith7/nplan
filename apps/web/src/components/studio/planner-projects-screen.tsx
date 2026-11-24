@@ -3,17 +3,13 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
-  Download,
-  FileText,
   FolderOpen,
   Plus,
-  Upload,
   X,
 } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 import {
   type usePlannerProjects,
-  useProjectDocuments,
   type PlannerProject,
   type ProjectInput,
   type ProjectStatus,
@@ -23,6 +19,7 @@ import {
   type PlannerTaskRow,
 } from "@/hooks/use-planner-tasks";
 import type { PlannerCategory } from "@/lib/planner-data";
+import { ProjectDocuments } from "./project-documents";
 import "./planner-projects-screen.css";
 
 const statuses: Record<ProjectStatus, string> = {
@@ -600,151 +597,4 @@ function ProjectTasks({
       )}
     </section>
   );
-}
-
-function ProjectDocuments({ projectId }: { projectId: string }) {
-  const documents = useProjectDocuments(projectId);
-  const input = useRef<HTMLInputElement>(null);
-  const [message, setMessage] = useState("");
-  const [pendingRemoval, setPendingRemoval] = useState<string>();
-  const busy =
-    documents.upload.isPending ||
-    documents.download.isPending ||
-    documents.remove.isPending;
-
-  return (
-    <section className="project-panel" aria-label="Документы проекта">
-      <div className="project-panel-title">
-        <h2>Документы</h2>
-        <input
-          ref={input}
-          type="file"
-          hidden
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            event.currentTarget.value = "";
-            if (!file) return;
-            setMessage("");
-            void documents.upload
-              .mutateAsync(file)
-              .catch((error: Error) => setMessage(error.message));
-          }}
-        />
-        <button
-          type="button"
-          className="project-action"
-          disabled={busy || documents.isError}
-          onClick={() => input.current?.click()}
-        >
-          <Upload size={16} /> Загрузить файл
-        </button>
-      </div>
-      {documents.upload.isPending && (
-        <p className="project-hint" role="status">
-          Загружаю файл…
-        </p>
-      )}
-      {message && (
-        <p className="project-error" role="alert">
-          {message}
-        </p>
-      )}
-      {documents.isPending ? (
-        <p className="project-hint" role="status">
-          Загружаю документы…
-        </p>
-      ) : documents.isError ? (
-        <Retry
-          message="Не удалось загрузить документы."
-          onRetry={() => void documents.refetch()}
-        />
-      ) : !documents.data.length ? (
-        <p className="project-hint">
-          Загрузите договор, спецификацию или другой важный файл до 50 МБ.
-        </p>
-      ) : (
-        <ul className="project-rows">
-          {documents.data.map((file) => (
-            <li key={file.key} className="project-document">
-              <div className="project-document-row">
-                <FileText size={17} aria-hidden="true" />
-                <span>
-                  {file.name}
-                  {file.size !== undefined && (
-                    <small>{formatSize(file.size)}</small>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  className="project-action project-icon-action"
-                  disabled={busy}
-                  aria-label={`Скачать ${file.name}`}
-                  title="Скачать"
-                  onClick={() => {
-                    setMessage("");
-                    void documents.download
-                      .mutateAsync(file)
-                      .catch(() =>
-                        setMessage(
-                          "Не удалось скачать файл. Попробуйте ещё раз."
-                        )
-                      );
-                  }}
-                >
-                  <Download size={17} />
-                </button>
-                <button
-                  type="button"
-                  className="project-action project-icon-action"
-                  disabled={busy}
-                  aria-label={`Удалить ${file.name}`}
-                  title="Удалить"
-                  onClick={() => setPendingRemoval(file.key)}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              {pendingRemoval === file.key && (
-                <div className="project-confirm">
-                  <span>Удалить файл из проекта?</span>
-                  <button
-                    type="button"
-                    className="project-action"
-                    disabled={busy}
-                    onClick={() => setPendingRemoval(undefined)}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    className="project-action"
-                    disabled={busy}
-                    onClick={() => {
-                      setMessage("");
-                      void documents.remove
-                        .mutateAsync(file)
-                        .then(() => setPendingRemoval(undefined))
-                        .catch(() =>
-                          setMessage(
-                            "Не удалось удалить файл. Попробуйте ещё раз."
-                          )
-                        );
-                    }}
-                  >
-                    Удалить
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`;
-  return `${(bytes / (1024 * 1024)).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} МБ`;
 }

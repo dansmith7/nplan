@@ -1,5 +1,5 @@
-/* Arc foundation scoped to NPlan analytics to avoid changing the existing app theme. */
-@scope (.analytics-arc) {
+/* Arc tokens apply to these areas without changing the NPlan theme. */
+@scope (.analytics-arc, .project-upload-progress) {
 :scope {
   color-scheme: light;
   --neutral-0: oklch(100% 0 0);

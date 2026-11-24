@@ -19,6 +19,7 @@ type TaskInput = {
   title: string;
   description?: string | null;
   categoryId: string;
+  projectId?: string;
   dueDate?: string | null;
   dueTime?: string | null;
   recurrence?: "none" | "weekly" | "monthly";
@@ -26,29 +27,32 @@ type TaskInput = {
 
 const taskKey = (userId?: string) => ["planner", "tasks", userId] as const;
 
-async function getPlannerTasks(): Promise<PlannerTaskRow[]> {
-  const { data, error } = await requireSupabase()
+async function getPlannerTasks(projectId?: string): Promise<PlannerTaskRow[]> {
+  const query = requireSupabase()
     .from("tasks")
     .select(
       "id, title, description, status, due_date, due_time, completed_at, recurrence, category:categories(id, name)"
     )
     .order("due_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .returns<PlannerTaskRow[]>();
+    .order("created_at", { ascending: false });
+
+  if (projectId) query.eq("project_id", projectId);
+  const { data, error } = await query.returns<PlannerTaskRow[]>();
 
   if (error) throw error;
   return data;
 }
 
-export function usePlannerTasks() {
+export function usePlannerTasks(projectId?: string) {
   const queryClient = useQueryClient();
   const { isConfigured, session } = useSupabaseSession();
   const key = taskKey(session?.user.id);
   const tasksQuery = useQuery({
-    queryKey: key,
-    queryFn: getPlannerTasks,
+    queryKey: projectId ? [...key, projectId] : key,
+    queryFn: () => getPlannerTasks(projectId),
     enabled: isConfigured && Boolean(session?.user.id),
     staleTime: 30_000,
+    refetchOnMount: projectId ? "always" : undefined,
   });
 
   const invalidate = React.useCallback(
@@ -70,6 +74,7 @@ export function usePlannerTasks() {
           title: input.title,
           description: input.description ?? null,
           category_id: input.categoryId,
+          ...(input.projectId ? { project_id: input.projectId } : {}),
           due_date: input.dueDate || null,
           due_time: input.dueTime || null,
           recurrence: input.recurrence ?? "none",

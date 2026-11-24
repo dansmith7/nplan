@@ -13,6 +13,7 @@ import {
   CircleCheck,
   FileText,
   Film,
+  FolderOpen,
   Factory,
   GraduationCap,
   Inbox,
@@ -33,11 +34,13 @@ import {
 } from "lucide-react";
 import "./studio-dashboard.css";
 import { PlannerStudentsScreen } from "./planner-students-screen";
+import { PlannerProjectsScreen } from "./planner-projects-screen";
 import { PlannerCollectionsScreen } from "./planner-collections-screen";
 import { PlannerSleepScreen } from "./planner-sleep-screen";
 import { PlannerDayScreen } from "./planner-day-screen";
 import { PlannerAnalyticsScreen } from "./planner-analytics-screen";
 import type { CollectionItemType } from "@/hooks/use-planner-movies";
+import { usePlannerProjects, type PlannerProject } from "@/hooks/use-planner-projects";
 import { usePlannerBootstrap } from "@/hooks/use-planner-bootstrap";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 import { PlannerWelcome } from "./planner-welcome";
@@ -68,7 +71,7 @@ import {
 } from "@/hooks/use-planner-inbox";
 import { useLessonConfirmationActions } from "@/hooks/use-planner-lessons";
 
-type Screen = "planner" | "journal" | "inbox" | "students" | "collections";
+type Screen = "planner" | "journal" | "inbox" | "students" | "collections" | "projects";
 type JournalTab = "week" | "day" | "picture";
 type Category =
   | "Китай"
@@ -366,6 +369,9 @@ export function StudioDashboard() {
       ? displayName.split(" ")[0]
       : "Собранно.";
   const [screen, setScreen] = React.useState<Screen>("planner");
+  const plannerProjects = usePlannerProjects(screen === "planner" || screen === "projects");
+  const [projectEntry, setProjectEntry] = React.useState<{ categoryId: string; projectId?: string }>();
+
   const [journalTab, setJournalTab] = React.useState<JournalTab>("day");
   React.useEffect(() => {
     const reduceMotion = window.matchMedia(
@@ -376,28 +382,13 @@ export function StudioDashboard() {
       behavior: reduceMotion ? "auto" : "smooth",
     });
   }, [screen]);
-  const tasks = React.useMemo<Task[]>(() => {
-    if (!plannerTasks.data) return [];
-    return plannerTasks.data.flatMap((task) => {
-      const category = task.category?.name as Category | undefined;
-      if (!category || !categories.includes(category)) return [];
-      return [
-        {
-          id: task.id,
-          title: task.title,
-          category,
-          due: getDueTone(task.due_date),
-          date: formatDueDate(task.due_date),
-          dueDate: task.due_date,
-          time: task.due_time ?? undefined,
-          repeat: recurrenceToLabel(task.recurrence),
-          done: task.status === "completed",
-          note: task.description ?? undefined,
-          completedAt: task.completed_at ?? undefined,
-        },
-      ];
-    });
-  }, [plannerTasks.data]);
+  const tasks = React.useMemo(
+    () => (plannerTasks.data ?? []).flatMap((row) => {
+      const task = toStudioTask(row);
+      return task ? [task] : [];
+    }),
+    [plannerTasks.data]
+  );
   const categoryIds = React.useMemo(
     () =>
       new Map(
@@ -409,6 +400,7 @@ export function StudioDashboard() {
   const [newTaskCategory, setNewTaskCategory] = React.useState<Category | null>(
     null
   );
+  const [newTaskProject, setNewTaskProject] = React.useState<{ id: string; title: string } | null>(null);
   const [inboxTaskDraft, setInboxTaskDraft] = React.useState<{
     id: string;
     title: string;
@@ -429,14 +421,14 @@ export function StudioDashboard() {
     React.useState(false);
   const completeTask = React.useCallback(
     async (id: string) => {
-      const task = tasks.find((item) => item.id === id);
+      const task = tasks.find((item) => item.id === id) ?? (selectedTask?.id === id ? selectedTask : null);
       if (!task) return;
       await plannerTasks.setCompleted.mutateAsync({
         id,
         completed: !task.done,
       });
     },
-    [plannerTasks.setCompleted, tasks]
+    [plannerTasks.setCompleted, selectedTask, tasks]
   );
   const updateTask = React.useCallback(
     async (nextTask: Task) => {
@@ -463,6 +455,7 @@ export function StudioDashboard() {
         title: draft.title,
         description: draft.note?.trim() ?? null,
         categoryId,
+        projectId: newTaskProject?.id,
         dueDate: draft.dueDate || null,
         dueTime: draft.time || null,
         recurrence: labelToRecurrence(draft.repeat),
@@ -473,6 +466,7 @@ export function StudioDashboard() {
       void mutation
         .then(() => {
           setNewTaskCategory(null);
+          setNewTaskProject(null);
           setInboxTaskDraft(null);
         })
         .catch(() => {
@@ -481,7 +475,7 @@ export function StudioDashboard() {
           );
         });
     },
-    [categoryIds, inboxTaskDraft, plannerInbox.promote, plannerTasks.create]
+    [categoryIds, inboxTaskDraft, newTaskProject, plannerInbox.promote, plannerTasks.create]
   );
   const navigation: Array<{
     id: Screen;
@@ -492,6 +486,7 @@ export function StudioDashboard() {
     { id: "journal", label: "День", icon: <CalendarHeart size={17} /> },
     { id: "inbox", label: "Входящие", icon: <Inbox size={17} /> },
     { id: "students", label: "Ученики", icon: <Users size={17} /> },
+    { id: "projects", label: "Проекты", icon: <FolderOpen size={17} /> },
     {
       id: "collections",
       label: "Коллекции",
@@ -508,8 +503,13 @@ export function StudioDashboard() {
             <button
               key={item.id}
               className={screen === item.id ? "active" : ""}
-              onClick={() => setScreen(item.id)}
+              onClick={() => {
+                if (item.id === "projects") setProjectEntry(undefined);
+                setScreen(item.id);
+              }}
               title={item.label}
+              aria-label={item.label}
+              aria-current={screen === item.id ? "page" : undefined}
             >
               {item.icon}
               <span>{item.label}</span>
@@ -578,6 +578,12 @@ export function StudioDashboard() {
             {screen === "planner" ? (
               <PlannerScreen
                 tasks={tasks}
+                projects={plannerProjects.data ?? []}
+                categoryIds={categoryIds}
+                onOpenProjects={(categoryId, projectId) => {
+                  setProjectEntry({ categoryId, projectId });
+                  setScreen("projects");
+                }}
                 calendarEvents={calendarEvents}
                 calendarWeekStart={calendarWeekStart}
                 inboxItems={plannerInbox.data ?? []}
@@ -646,6 +652,25 @@ export function StudioDashboard() {
               />
             ) : null}
             {screen === "students" ? <PlannerStudentsScreen /> : null}
+            {screen === "projects" ? (
+              <PlannerProjectsScreen
+                key={projectEntry?.projectId ?? projectEntry?.categoryId ?? "all"}
+                projects={plannerProjects}
+                initialCategoryId={projectEntry?.categoryId}
+                initialProjectId={projectEntry?.projectId}
+                categories={plannerBootstrap.data?.categories ?? []}
+                today={localDateString(headerNow)}
+                onCreateTask={(project) => {
+                  const name = plannerBootstrap.data?.categories.find((item) => item.id === project.category_id)?.name;
+                  const category = categories.find((item) => item === name);
+                  if (!category) return;
+                  setTaskCreationError(null);
+                  setNewTaskProject({ id: project.id, title: project.title });
+                  setNewTaskCategory(category);
+                }}
+                onOpenTask={(row) => setSelectedTask(toStudioTask(row))}
+              />
+            ) : null}
             {screen === "collections" ? (
               <PlannerCollectionsScreen initialType={collectionsInitialType} />
             ) : null}
@@ -666,6 +691,7 @@ export function StudioDashboard() {
       {newTaskCategory ? (
         <CreateTaskModal
           category={newTaskCategory}
+          projectTitle={newTaskProject?.title}
           initialTitle={inboxTaskDraft?.title}
           initialDescription={inboxTaskDraft?.description}
           error={taskCreationError}
@@ -674,6 +700,7 @@ export function StudioDashboard() {
           }
           onClose={() => {
             setNewTaskCategory(null);
+            setNewTaskProject(null);
             setInboxTaskDraft(null);
             setTaskCreationError(null);
           }}
@@ -734,6 +761,9 @@ export function StudioDashboard() {
 
 function PlannerScreen({
   tasks,
+  projects,
+  categoryIds,
+  onOpenProjects,
   calendarEvents,
   calendarWeekStart,
   inboxItems,
@@ -746,6 +776,9 @@ function PlannerScreen({
   onOpenCalendar,
 }: {
   tasks: Task[];
+  projects: PlannerProject[];
+  categoryIds: Map<string, string>;
+  onOpenProjects: (categoryId: string, projectId?: string) => void;
   calendarEvents: PlannerEvent[];
   calendarWeekStart: Date;
   inboxItems: PlannerInboxRow[];
@@ -762,7 +795,6 @@ function PlannerScreen({
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  const hasActiveTasks = tasks.some((task) => !task.done);
   const todayLabel = new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
     day: "numeric",
@@ -798,32 +830,29 @@ function PlannerScreen({
       <section className="category-section">
         <div className="section-title">
           <div>
-            <span>ЗАДАЧИ ПО НАПРАВЛЕНИЯМ</span>
+            <span>НАПРАВЛЕНИЯ</span>
             <h2>В работе</h2>
           </div>
-          <p>Нажмите на задачу, чтобы открыть детали</p>
+          <p>Проекты и задачи по направлениям</p>
         </div>
-        {hasActiveTasks ? (
-          <div className="category-scroll">
-            {categories.map((category) => (
+        <div className="category-scroll">
+          {categories.map((category) => {
+            const categoryId = categoryIds.get(category);
+            return (
               <CategoryColumn
                 key={category}
                 category={category}
                 tasks={tasks.filter((task) => task.category === category)}
+                projects={projects.filter((project) =>
+                  project.category_id === categoryId && project.status !== "completed")}
+                onOpenProjects={categoryId ? (projectId) => onOpenProjects(categoryId, projectId) : undefined}
                 onComplete={(id) => void onComplete(id)}
                 onOpen={onOpen}
                 onAdd={onAdd}
               />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="На сегодня всё сделано."
-            text="Новые задачи появятся здесь, когда вы их добавите или получите из входящих."
-            action="Создать задачу"
-            onAction={() => onAdd("Личное")}
-          />
-        )}
+            );
+          })}
+        </div>
       </section>
       <div className="planner-dashboard-review planner-evening-review">
         <EveningReviewScreen
@@ -1103,12 +1132,16 @@ function HomeCalendar({
 function CategoryColumn({
   category,
   tasks,
+  projects,
+  onOpenProjects,
   onComplete,
   onOpen,
   onAdd,
 }: {
   category: Category;
   tasks: Task[];
+  projects: PlannerProject[];
+  onOpenProjects?: (projectId?: string) => void;
   onComplete: (id: string) => void;
   onOpen: (task: Task) => void;
   onAdd: (category: Category) => void;
@@ -1125,6 +1158,24 @@ function CategoryColumn({
         <h3>{category}</h3>
         <small>{activeTasks.length}</small>
       </header>
+      {onOpenProjects && (
+        <div className="category-projects">
+          <button type="button" className="category-projects-link"
+            aria-label={`Проекты направления «${category}»`}
+            onClick={() => onOpenProjects()}>
+            <FolderOpen size={14} aria-hidden="true" />
+            <span>Проекты</span>
+            {projects.length > 0 && <small>{projects.length}</small>}
+            <ChevronRight size={13} aria-hidden="true" />
+          </button>
+          {projects.slice(0, 2).map((project) => (
+            <button key={project.id} type="button" className="category-project-name"
+              title={project.title} onClick={() => onOpenProjects(project.id)}>
+              {project.title}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="task-stack">
         {activeTasks.length ? (
           activeTasks.map((task) => (
@@ -2023,31 +2074,6 @@ function ReviewTaskPanel({
   );
 }
 
-function EmptyState({
-  title,
-  text,
-  action,
-  onAction,
-}: {
-  title: string;
-  text: string;
-  action: string;
-  onAction: () => void;
-}) {
-  return (
-    <section className="empty-state">
-      <CircleCheck size={22} />
-      <div>
-        <h3>{title}</h3>
-        <p>{text}</p>
-      </div>
-      <button onClick={onAction}>
-        <Plus size={15} /> {action}
-      </button>
-    </section>
-  );
-}
-
 const timeOptions = [
   "",
   "09:00",
@@ -2072,6 +2098,24 @@ function isLocalDateToday(value?: string) {
     !Number.isNaN(date.getTime()) && localDateString(date) === localDateString()
   );
 }
+function toStudioTask(task: PlannerTaskRow): Task | null {
+  const category = categories.find((item) => item === task.category?.name);
+  if (!category) return null;
+  return {
+    id: task.id,
+    title: task.title,
+    category,
+    due: getDueTone(task.due_date),
+    date: formatDueDate(task.due_date),
+    dueDate: task.due_date,
+    time: task.due_time ?? undefined,
+    repeat: recurrenceToLabel(task.recurrence),
+    done: task.status === "completed",
+    note: task.description ?? undefined,
+    completedAt: task.completed_at ?? undefined,
+  };
+}
+
 function getDueTone(value: string | null): Task["due"] {
   if (!value) return "future";
   const today = localDateString();
@@ -2253,6 +2297,7 @@ function TaskModal({
 }
 function CreateTaskModal({
   category,
+  projectTitle,
   initialTitle,
   initialDescription,
   isCreating,
@@ -2261,6 +2306,7 @@ function CreateTaskModal({
   onCreate,
 }: {
   category: Category;
+  projectTitle?: string;
   initialTitle?: string;
   initialDescription?: string;
   isCreating: boolean;
@@ -2282,6 +2328,7 @@ function CreateTaskModal({
           <X size={18} />
         </button>
       </div>
+      {projectTitle && <p className="project-hint">Проект · {projectTitle}</p>}
       <label>
         Название
         <input

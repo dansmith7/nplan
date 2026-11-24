@@ -13,8 +13,10 @@ import { usePlannerDailyCards } from "@/hooks/use-planner-daily-cards";
 import { usePlannerSleepEntries } from "@/hooks/use-planner-sleep-entries";
 import {
   dayScore,
+  estimatedSleepMinutes,
   sleepIndex,
   sleepIndexBreakdown,
+  sleepIndexWeights,
 } from "./planner-sleep-index";
 import SegmentedControl from "@/components/arc/segmented-control/segmented-control";
 import "@/components/arc/foundation.scoped.css";
@@ -33,16 +35,8 @@ const addDays = (date: string, n: number) => {
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 };
-const minutes = (bed: string, wake: string) => {
-  const [bh = 0, bm = 0] = bed.split(":").map(Number),
-    [wh = 0, wm = 0] = wake.split(":").map(Number);
-  let end = wh * 60 + wm;
-  const start = bh * 60 + bm;
-  if (end <= start) end += 1440;
-  return end - start;
-};
 const short = (value?: number) =>
-  value
+  value != null
     ? `${Math.floor(value / 60)}ч ${String(value % 60).padStart(2, "0")}м`
     : "—";
 const avg = (values: number[]) =>
@@ -84,6 +78,10 @@ const dayName = (day: string) =>
     month: "long",
   }).format(new Date(`${day}T12:00:00`));
 
+function formatScorePart(value: number | null, max: number) {
+  return value === null ? "—" : `${value.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}/${max}`;
+}
+
 export function PlannerAnalyticsScreen() {
   const [month, setMonth] = React.useState(() => today().slice(0, 7));
   const [selectedDay, setSelectedDay] = React.useState<string | null>(null);
@@ -106,7 +104,7 @@ export function PlannerAnalyticsScreen() {
     day ? [{ day, card: cardByDay.get(day), night: sleepByDay.get(day) }] : []
   );
   const sleepValues = monthEntries.flatMap(({ night }) =>
-    night ? [minutes(night.bedtime, night.wakeTime) / 60] : []
+    night ? [estimatedSleepMinutes(night) / 60] : []
   );
   const ratingValues = monthEntries.flatMap(({ night }) =>
     night && (ratingView === "sleep" || night.dayReport)
@@ -142,7 +140,7 @@ export function PlannerAnalyticsScreen() {
         label,
         count: entries.length,
         sleep: avg(
-          entries.map((entry) => minutes(entry.bedtime, entry.wakeTime) / 60)
+          entries.map((entry) => estimatedSleepMinutes(entry) / 60)
         ),
         mood: avg(
           entries.flatMap((entry) =>
@@ -335,44 +333,39 @@ export function PlannerAnalyticsScreen() {
               {selectedNight ? (
                 <article>
                   <MoonStar size={17} />
-                  <span>Период сна по записи</span>
+                  <span>{selectedNight.awakeMinutes == null ? "Интервал по записи" : "Примерно спал"}</span>
                   <strong>
                     {short(
-                      minutes(selectedNight.bedtime, selectedNight.wakeTime)
+                      estimatedSleepMinutes(selectedNight)
                     )}
                   </strong>
                   <small>
                     {selectedNight.bedtime} — {selectedNight.wakeTime} ·{" "}
-                    {selectedNight.awakenings
-                      ? `${selectedNight.awakenings} пробужд.`
-                      : "без пробуждений"}
+                    {selectedNight.awakenings == null
+                      ? "пробуждения не отмечены"
+                      : `${selectedNight.awakenings} пробужд.`}
+                    {selectedNight.awakeMinutes != null && ` · ${selectedNight.awakeMinutes} мин без сна`}
                   </small>
                 </article>
               ) : null}
               {selectedSleepScore ? (
                 <article>
                   <MoonStar size={17} />
-                  <span>Как получен индекс</span>
-                  <strong>
-                    {selectedSleepScore.total}/100 · ночь{" "}
-                    {selectedSleepScore.nightly}/100
-                  </strong>
+                  <span>Индекс сна</span>
+                  <strong>{selectedSleepScore.total}/100</strong>
                   <small>
-                    Длительность {selectedSleepScore.durationScore} · ритм{" "}
-                    {selectedSleepScore.timingScore} · пробуждения{" "}
-                    {selectedSleepScore.awakeningScore}
-                    {selectedSleepScore.latePenalty
-                      ? ` · поздний отход −${selectedSleepScore.latePenalty}`
-                      : ""}
+                    Длительность {formatScorePart(selectedSleepScore.duration, sleepIndexWeights.duration)} ·
+                    пробуждения {formatScorePart(selectedSleepScore.awakenings, sleepIndexWeights.awakenings)} ·
+                    регулярность {formatScorePart(selectedSleepScore.timing, sleepIndexWeights.timing)}
                   </small>
-                  <small>
-                    {selectedSleepScore.timingDifference === null
-                      ? "Для сравнения ритма пока нет прежних ночей."
-                      : `Отклонение от предыдущих ночей: ${Math.floor(selectedSleepScore.timingDifference / 60)} ч ${selectedSleepScore.timingDifference % 60} мин.`}{" "}
-                    {selectedSleepScore.daytime === null
-                      ? "Дневная анкета пока не заполнена."
-                      : `Дневная оценка ${selectedSleepScore.daytime}/100.`}
-                  </small>
+                  {selectedSleepScore.available < 100 && (
+                    <small>Базовый индекс приведён к 100 по доступным показателям.</small>
+                  )}
+                  {selectedSleepScore.shortNights.penalty > 0 && (
+                    <small>
+                      −{selectedSleepScore.shortNights.penalty.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} за серию коротких ночей ({selectedSleepScore.shortNights.nights + 1} подряд).
+                    </small>
+                  )}
                 </article>
               ) : null}
               {selectedNight?.dayReport ? (

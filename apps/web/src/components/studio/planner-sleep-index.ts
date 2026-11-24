@@ -1,58 +1,92 @@
 import type { PlannerSleepEntry, SleepReport } from "@/hooks/use-planner-sleep-entries";
 
-function duration(bedtime: string, wakeTime: string) {
-  const [bh = 0, bm = 0] = bedtime.split(":").map(Number);
-  const [wh = 0, wm = 0] = wakeTime.split(":").map(Number);
-  const start = bh * 60 + bm;
-  let end = wh * 60 + wm;
-  if (end <= start) end += 1440;
-  return end - start;
+const dayMinutes = 1440;
+const durationScale = [[180, 0], [240, 15], [300, 30], [360, 45], [390, 65], [420, 80], [450, 95], [480, 100]] as const;
+const awakeningScale = [20, 20, 20, 12, 8] as const;
+const shortNightMinutes = 420;
+export const sleepIndexWeights = { duration: 70, awakenings: 20, timing: 10 } as const;
+
+function clockMinutes(time: string) {
+  const [hours = 0, minutes = 0] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
-function timingMinutes(entry: PlannerSleepEntry) {
-  const [hours = 0, minutes = 0] = entry.bedtime.split(":").map(Number);
-  const value = hours * 60 + minutes;
-  return value < 12 * 60 ? value + 1440 : value;
+export function sleepDurationMinutes(bedtime: string, wakeTime: string) {
+  return (clockMinutes(wakeTime) - clockMinutes(bedtime) + dayMinutes) % dayMinutes;
 }
 
-function sleepDurationScore(minutes: number) {
-  if (minutes >= 450) return 100;
-  if (minutes >= 420) return Math.round(80 + ((minutes - 420) / 30) * 20);
-  if (minutes >= 360) return Math.round(60 + ((minutes - 360) / 60) * 20);
-  if (minutes >= 300) return Math.round(35 + ((minutes - 300) / 60) * 25);
-  if (minutes >= 240) return Math.round(10 + ((minutes - 240) / 60) * 25);
-  return 0;
+export function estimatedSleepMinutes(entry: PlannerSleepEntry) {
+  return Math.max(0, sleepDurationMinutes(entry.bedtime, entry.wakeTime) - (entry.awakeMinutes ?? 0));
 }
 
-function awakeningScore(awakenings: number) {
-  if (awakenings === 0) return 100;
-  if (awakenings === 1) return 90;
-  if (awakenings === 2) return 85;
-  if (awakenings === 3) return 60;
-  return Math.max(20, 60 - (awakenings - 3) * 10);
+function durationRating(minutes: number) {
+  for (let i = 1; i < durationScale.length; i++) {
+    const [end, upper] = durationScale[i]!;
+    if (minutes <= end) {
+      const [start, lower] = durationScale[i - 1]!;
+      return lower + Math.max(0, minutes - start) * (upper - lower) / (end - start);
+    }
+  }
+  return 100;
 }
 
-function weekdayLateBedtimePenalty(entry: PlannerSleepEntry) {
-  const wakeDay = new Date(`${entry.date}T12:00:00`).getDay();
-  if (wakeDay === 0 || wakeDay === 6) return 0;
-  const bedtime = timingMinutes(entry);
-  if (bedtime <= 26 * 60) return 0;
-  if (bedtime <= 26 * 60 + 30) return 5;
-  if (bedtime <= 27 * 60) return 12;
-  if (bedtime <= 28 * 60) return 22;
-  return 30;
+function bedtimeDeviation(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
+  const from = new Date(entry.date + "T00:00:00Z");
+  from.setUTCDate(from.getUTCDate() - 14);
+  const firstDay = from.toISOString().slice(0, 10);
+  const bedtimes = history
+    .filter((night) => night.date >= firstDay && night.date < entry.date && night.id !== entry.id)
+    .map((night) => clockMinutes(night.bedtime))
+    .sort((a, b) => a - b);
+  if (bedtimes.length < 5) return null;
+
+  // Unwrap the clock at the largest gap so the median also works across midnight.
+  let origin = bedtimes[0]!;
+  let largestGap = origin + dayMinutes - bedtimes.at(-1)!;
+  for (let i = 1; i < bedtimes.length; i++) {
+    const gap = bedtimes[i]! - bedtimes[i - 1]!;
+    if (gap > largestGap) {
+      largestGap = gap;
+      origin = bedtimes[i]!;
+    }
+  }
+  const ordered = bedtimes.map((time) => time < origin ? time + dayMinutes : time).sort((a, b) => a - b);
+  const middle = (ordered.length - 1) / 2;
+  const median = (ordered[Math.floor(middle)]! + ordered[Math.ceil(middle)]!) / 2;
+  return (clockMinutes(entry.bedtime) - median + dayMinutes * 2.5) % dayMinutes - dayMinutes / 2;
 }
 
-export function nightIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
-  const minutes = duration(entry.bedtime, entry.wakeTime);
-  const durationScore = sleepDurationScore(minutes);
-  const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
-  const averageTiming = others.length
-    ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length
-    : timingMinutes(entry);
-  const timingScore = Math.max(0, Math.round(100 - Math.abs(timingMinutes(entry) - averageTiming) / 1.2));
-  const score = durationScore * 0.6 + timingScore * 0.25 + awakeningScore(entry.awakenings) * 0.15 - weekdayLateBedtimePenalty(entry);
-  return Math.max(0, Math.round(score));
+function recentShortNights(entry: PlannerSleepEntry, history: PlannerSleepEntry[], minutes: number) {
+  let nights = 0;
+  let deficit = 0;
+  if (minutes < shortNightMinutes) {
+    const day = new Date(entry.date + "T00:00:00Z");
+    while (nights < 3) {
+      day.setUTCDate(day.getUTCDate() - 1);
+      const date = day.toISOString().slice(0, 10);
+      const previous = history.find((night) => night.date === date && night.id !== entry.id);
+      if (!previous) break;
+      const shortfall = shortNightMinutes - estimatedSleepMinutes(previous);
+      if (shortfall <= 0) break;
+      deficit += shortfall;
+      nights++;
+    }
+  }
+  return { nights, penalty: Math.min(10, deficit / 20) };
+}
+
+export function sleepIndexBreakdown(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
+  const minutes = estimatedSleepMinutes(entry);
+  const deviation = bedtimeDeviation(entry, history);
+  const weights = sleepIndexWeights;
+  const duration = durationRating(minutes) * weights.duration / 100;
+  const awakenings = entry.awakenings == null ? null : awakeningScale[Math.min(entry.awakenings, 4)]!;
+  const timing = deviation == null ? null : Math.max(0, 1 - Math.max(0, Math.abs(deviation) - 60) / 120) * weights.timing;
+  const available = weights.duration + (awakenings == null ? 0 : weights.awakenings) + (timing == null ? 0 : weights.timing);
+  const shortNights = recentShortNights(entry, history, minutes);
+  const base = (duration + (awakenings ?? 0) + (timing ?? 0)) * 100 / available;
+  const total = Math.max(0, Math.round(base - shortNights.penalty));
+  return { total, minutes, duration, awakenings, timing, deviation, available, shortNights };
 }
 
 export function dayScore(report: SleepReport) {
@@ -60,28 +94,5 @@ export function dayScore(report: SleepReport) {
 }
 
 export function sleepIndex(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
-  const nightly = nightIndex(entry, history);
-  return entry.dayReport ? Math.round(nightly * 0.7 + dayScore(entry.dayReport) * 0.3) : nightly;
-}
-
-// Expose the existing production calculation for calendar details without
-// changing its weights or the scores already shown in the sleep screen.
-export function sleepIndexBreakdown(entry: PlannerSleepEntry, history: PlannerSleepEntry[]) {
-  const minutes = duration(entry.bedtime, entry.wakeTime);
-  const others = history.filter((item) => item.id !== entry.id).slice(0, 6);
-  const averageTiming = others.length
-    ? others.reduce((sum, item) => sum + timingMinutes(item), 0) / others.length
-    : timingMinutes(entry);
-  const difference = Math.abs(timingMinutes(entry) - averageTiming);
-  return {
-    total: sleepIndex(entry, history),
-    nightly: nightIndex(entry, history),
-    daytime: entry.dayReport ? dayScore(entry.dayReport) : null,
-    minutes,
-    durationScore: sleepDurationScore(minutes),
-    timingScore: Math.max(0, Math.round(100 - difference / 1.2)),
-    timingDifference: others.length ? Math.round(difference) : null,
-    awakeningScore: awakeningScore(entry.awakenings),
-    latePenalty: weekdayLateBedtimePenalty(entry),
-  };
+  return sleepIndexBreakdown(entry, history).total;
 }

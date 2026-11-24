@@ -1,6 +1,8 @@
 import type { PlannerDailyCard } from "@/hooks/use-planner-daily-card";
 import type { PlannerSleepEntry } from "@/hooks/use-planner-sleep-entries";
 
+import { estimatedSleepMinutes } from "./planner-sleep-index";
+
 export type Observation = {
   id: string;
   finding: string;
@@ -36,12 +38,7 @@ export function shiftObservationDay(day: string, offset: number) {
   return value.toISOString().slice(0, 10);
 }
 export function recordedSleepMinutes(entry: PlannerSleepEntry) {
-  const clock = (time: string) => {
-    const [h = 0, m = 0] = time.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const length = clock(entry.wakeTime) - clock(entry.bedtime);
-  return length > 0 ? length : length + 1440;
+  return estimatedSleepMinutes(entry);
 }
 const bedtimeMinutes = (entry: PlannerSleepEntry) => {
   const [h = 0, m = 0] = entry.bedtime.split(":").map(Number);
@@ -249,7 +246,7 @@ export function buildObservations(
         return {
           date: day,
           group: workoutStatus(cardByDay.get(day)),
-          value: night.awakenings,
+          value: night.awakenings ?? undefined,
         };
       }),
       "Ночью после тренировки по сравнению с ночью после отдыха",
@@ -299,7 +296,7 @@ export function buildObservations(
         cards.map((c) => ({
           date: c.day,
           group: habitGroup(c),
-          value: byDay.get(shiftObservationDay(c.day, 1))?.awakenings,
+          value: byDay.get(shiftObservationDay(c.day, 1))?.awakenings ?? undefined,
         })),
         context,
         "число пробуждений",
